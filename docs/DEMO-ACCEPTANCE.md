@@ -22,7 +22,8 @@ Record the date, deployed build, tester, and links to evidence when running this
 ## Learning evidence and submission
 
 - [ ] Read the current Mubit task, Requests, kept-example count, and Adapters state. Record exact observations; successful recorded calls are not necessarily kept examples.
-- [ ] If Mubit documents a correction workflow, submit one approved synthetic correction and capture its accepted status and correlation to the original request. Trace any model update to a specific adapter version. Otherwise mark this gate **not verified** and say reviews remain local.
+- [ ] If a Mubit adapter version has **Passed**, compare it with the provider in Try models and label the comparison. Mubit support confirmed Try models interactions do not train; only the recorded app calls can contribute examples. If no version has passed, show the actual task status instead.
+- [ ] If Mubit documents a correction workflow, submit one approved synthetic correction and capture its accepted status and correlation to the original request. Trace any model update to a specific adapter version. Otherwise say reviews remain `local_only` and do not claim they caused training.
 - [ ] Claim an accuracy change only after comparing provider and a confirmed passing adapter on the same independently labelled held-out cases.
 - [ ] Verify the video is MP4 or MOV, under the organiser's current time limit, and the PDF deck reflects these observed states. Save the `/submit` receipt and confirm demo attendance.
 

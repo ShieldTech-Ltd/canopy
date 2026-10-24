@@ -63,9 +63,11 @@ The browser's training-retention checkbox requests full recording for the verifi
 2. Show `mubit.extract` and `mubit.verify`, then the real `mreq_` identifiers.
 3. Inspect the supplied policy, evidence and claim in the Evidence tab.
 4. Save a justified human review and reopen the case to show persistence.
-5. For the full hackathon requirement, additionally demonstrate a correction accepted by Mubit and a real adapter update. This last step is an outstanding integration, not completed by local review storage.
+5. Show the current Mubit task and kept-example count. If a version has **Passed**, compare it with its provider in Try models and label that as an adapter comparison. Mubit support confirmed that Try models interactions do not contribute training examples. Canopy's saved review remains `local_only` until Mubit confirms a supported correction submission path.
 
 A changed answer after adding evidence is context enrichment. It is not proof of model training. Use separate held-out cases and trusted labels before claiming an improvement.
+
+The [recording script](docs/submission/RECORDING-SCRIPT.md) uses the fictional damaged-item exception and includes an honest ending if no adapter has passed. The [four-slide PDF deck](output/pdf/canopy-night-shift-demo.pdf) is a submission draft; update its live-status slide if the Mubit console changes before submission.
 
 ## Deployment
 
