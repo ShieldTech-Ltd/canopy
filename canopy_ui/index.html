@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#181818" />
+    <title>Canopy | verification workspace</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script src="/assets/app.js" defer></script>
+  </head>
+  <body>
+    <header class="titlebar">
+      <a class="wordmark" href="/" aria-label="Canopy home"
+        >canopy<span class="wordmark-dot">.</span></a
+      >
+      <span class="breadcrumb">/ verification workspace</span>
+      <div class="titlebar-right">
+        <span class="connection" id="connection">checking gateway</span
+        ><span class="event-name">NIGHT SHIFT / 2026</span>
+      </div>
+    </header>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Case navigation">
+        <button class="new-case" id="new-case">
+          New case <kbd>Ctrl K</kbd>
+        </button>
+        <div class="section-label">
+          THIS SESSION <span id="case-count">0</span>
+        </div>
+        <nav id="case-list" aria-label="Recent cases">
+          <p class="nav-empty">Your checked cases will appear here.</p>
+        </nav>
+        <div class="sidebar-bottom">
+          <dl>
+            <dt>GATEWAY</dt>
+            <dd>api.mubit.ai</dd>
+            <dt>MODEL</dt>
+            <dd id="model-name">checking</dd>
+          </dl>
+          <a href="https://app.mubit.ai/" target="_blank" rel="noopener"
+            >Open Mubit console ↗</a
+          >
+          <span class="build-label" id="build-label"></span>
+        </div>
+      </aside>
+      <main class="workbench">
+        <div class="pane-bar">
+          <div>
+            <span class="pane-label">WORKBENCH</span
+            ><span class="run-title" id="run-title">new case</span>
+          </div>
+          <div class="pane-actions">
+            <button class="text-button" id="reset-case">New case</button>
+            <button class="text-button" id="trace-toggle" aria-expanded="true">
+              Hide trace
+            </button>
+          </div>
+        </div>
+        <div
+          class="transcript"
+          id="transcript"
+          role="log"
+          aria-label="Case conversation"
+          aria-live="polite"
+        >
+          <section class="welcome" id="welcome">
+            <div class="session-heading">
+              Canopy <span>v0.2 / Night Shift</span>
+            </div>
+            <p class="welcome-lead">Policy checks you can inspect.</p>
+            <p>
+              Give me a policy, what happened, and the claim to check.<br />I
+              will call Mubit and show the evidence behind the decision.
+            </p>
+            <div class="welcome-flow">
+              <span>01 / supply a case</span><span>02 / inspect the run</span
+              ><span>03 / review the verdict</span>
+            </div>
+            <div class="sample-block">
+              <div class="section-label">START WITH A FICTIONAL CASE</div>
+              <button class="sample" id="sample-refund">
+                <span>Refund exception</span
+                ><span class="muted">policy + facts + claim ↗</span></button
+              ><button class="sample" id="sample-access">
+                <span>Access approval</span
+                ><span class="muted">missing evidence ↗</span>
+              </button>
+            </div>
+            <p class="quiet-note">
+              Every model request goes through Mubit. Human corrections are
+              saved locally until feedback integration is connected.
+            </p>
+          </section>
+        </div>
+        <form class="composer" id="composer">
+          <div class="prompt-row">
+            <span class="prompt-char" aria-hidden="true">&gt;</span
+            ><label class="sr-only" for="prompt">Describe a case</label
+            ><textarea
+              id="prompt"
+              rows="2"
+              maxlength="24000"
+              placeholder="Describe a case, or paste Policy: ... Evidence: ... Claim: ..."
+              required
+            ></textarea>
+          </div>
+          <div class="composer-actions">
+            <label class="record-option"
+              ><input type="checkbox" id="record" /> Request training retention
+              <span class="optional-note"
+                >(approved or fictional data)</span
+              ></label
+            ><button class="run-button" id="run-button" type="submit">
+              Run check <span aria-hidden="true">↵</span>
+            </button>
+          </div>
+          <div class="composer-foot">
+            <span>Enter to run · Shift + Enter for a new line</span
+            ><span id="run-status" role="status">ready</span>
+          </div>
+        </form>
+      </main>
+      <aside class="inspector" id="inspector" aria-label="Run inspector">
+        <div class="inspector-tabs" role="tablist" aria-label="Inspect run">
+          <button
+            role="tab"
+            id="execution-tab"
+            aria-selected="true"
+            aria-controls="execution-panel"
+          >
+            Execution</button
+          ><button
+            role="tab"
+            id="evidence-tab"
+            aria-selected="false"
+            aria-controls="evidence-panel"
+          >
+            Evidence
+          </button>
+        </div>
+        <section
+          id="execution-panel"
+          role="tabpanel"
+          aria-labelledby="execution-tab"
+        >
+          <div class="inspector-intro">
+            <span class="section-label">LIVE TOOL OUTPUT</span
+            ><span class="trace-count" id="trace-count">0 events</span>
+          </div>
+          <div class="trace-empty" id="trace-empty">
+            <p>No tools running.</p>
+            <p>
+              The actual requests, response IDs and timings will appear here
+              when you run a check.
+            </p>
+          </div>
+          <div
+            id="events"
+            role="log"
+            aria-label="Execution events"
+            aria-live="polite"
+          ></div>
+          <div class="trace-footer">
+            <span>Source: server events</span><span>Read-only tool trace</span>
+          </div>
+        </section>
+        <section
+          id="evidence-panel"
+          role="tabpanel"
+          aria-labelledby="evidence-tab"
+          hidden
+        >
+          <div class="trace-empty" id="evidence-empty">
+            <p>No case selected.</p>
+            <p>
+              The policy, facts and claim used for the verdict will appear here.
+            </p>
+          </div>
+          <div id="evidence-content"></div>
+        </section>
+      </aside>
+    </div>
+    <div class="notice" id="notice" role="alert" hidden></div>
+  </body>
+</html>

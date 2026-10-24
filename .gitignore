@@ -1,5 +1,7 @@
 .env
 canopy.sqlite3*
+canopy-agent.sqlite3*
+reports-preview*.log
 reports/
 __pycache__/
 *.pyc
