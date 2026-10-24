@@ -30,8 +30,7 @@ def secret(name):
     return Path(file_path).read_text().rstrip("\r\n") if file_path else value
 
 
-def load_policy(path):
-    policy = json.loads(Path(path).read_text())
+def validate_policy(policy):
     if not isinstance(policy, dict) or set(policy) != {"version", "rules"}:
         raise ValueError("Policy requires only version and rules")
     if not isinstance(policy["version"], str) or not 1 <= len(policy["version"]) <= 80:
@@ -53,6 +52,10 @@ def load_policy(path):
     if len(json.dumps(policy)) > 12000:
         raise ValueError("Policy is too long for this service")
     return policy
+
+
+def load_policy(path):
+    return validate_policy(json.loads(Path(path).read_text()))
 
 
 POLICY = load_policy(POLICY_PATH)
@@ -160,7 +163,7 @@ def prompt():
     )
 
 
-def predict(facts, reply, record=False):
+def predict(facts, reply, record=False, policy=None):
     if not KEY:
         raise RuntimeError("MUBIT_API_KEY missing")
     from openai import OpenAI
@@ -173,7 +176,8 @@ def predict(facts, reply, record=False):
                            {"x-middleware-record": "off", "x-middleware-store": "false"}),
             messages=[{"role": "system", "content": prompt()},
                       {"role": "user", "content": json.dumps({
-                          "policy": POLICY, "customer_facts": facts, "draft_reply": reply
+                          "policy": policy if policy is not None else POLICY,
+                          "customer_facts": facts, "draft_reply": reply
                       }, ensure_ascii=False)}])
         result = (raw.parse().choices[0].message.content or "").strip().upper()
         request_id = raw.headers.get("x-middleware-request-id")

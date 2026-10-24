@@ -1,6 +1,17 @@
 # Production readiness gates
 
-Canopy is a **single-operator pilot**, not a customer-facing multi-tenant service. Passing source tests does not prove live Mubit access, adapter learning, or a safe public deployment.
+Canopy has a legacy single-operator page and a separate, invite-only hosted API for one organisation with multiple staff. The hosted API is restricted to synthetic or specifically approved data. Passing source tests and a demo deployment do not prove correction-based Mubit learning, unrestricted customer-data readiness, or production infrastructure acceptance.
+
+## Hosted backend gates
+
+| Gate | Current evidence | Required live acceptance |
+|---|---|---|
+| Identity and roles | WorkOS session validation, active local membership, admin/operator/reviewer permissions, per-case ownership, and CSRF/origin checks are covered by PostgreSQL-backed tests. | Configure a real AuthKit organisation and invite-only policy; verify two staff identities, role changes, session revocation, and forbidden access on the deployed URL. |
+| Data and policy | PostgreSQL case and audit tables, immutable case policy snapshots, admin policy publishing, explicit recording choice, daily call budgets, owner-only dump creation, and restore are exercised locally. | Approve retention and Mubit/provider data terms, store secrets with the platform, restore an actual hosted backup, and check logs do not contain case text or credentials. Do not use unapproved customer records. |
+| Mubit learning | A real synthetic proxy call returned a verdict and `mreq_` ID. The hosted feedback route returns 503 while the corrected-verdict contract is unconfirmed. | Confirm the request-ID mapping and feedback contract with Mubit, then prove correction acceptance, kept-example count, task association, and adapter result in the console. |
+| Deployment | Hash-locked image build, local PostgreSQL tests, and legacy HTTPS Compose smoke pass. | Configure WorkOS, Neon, and Railway; verify the hosted runtime through real HTTPS, persistent database, auth, role boundaries, restart, backup/restore, and alerts. Free-trial resources are demo infrastructure. |
+
+## Legacy single-operator pilot gates
 
 | Gate | Current evidence | Required before claiming completion |
 |---|---|---|

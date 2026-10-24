@@ -22,6 +22,12 @@ The model call goes through Mubit's base URL. The API key stays server-side, and
 
 **Current limit:** reviewer corrections are saved as `local_only`. The app has not verified a correction reaching Mubit or producing an adapter update. It does not display a simulated model version or claim automatic improvement. The team's earlier autonomous claim-verification and Banyan experiments remain in Git history; the current application is the support-policy workflow shown above.
 
+## Hosted backend
+
+`CANOPY_RUNTIME=production` selects an invite-only, single-organisation JSON API backed by PostgreSQL and WorkOS AuthKit. Admins publish versioned policies and manage roles; operators check and see their own cases; reviewers correct cases. Each case retains the policy snapshot, Mubit request ID, review state, and an audit trail. Calls are bounded per user and organisation. Feedback submission remains unavailable until Mubit confirms its corrected-verdict contract. The existing page and SQLite store are a separate legacy pilot that requires an explicit opt-in on a public origin.
+
+The [hosted setup and acceptance runbook](docs/OPERATIONS.md#hosted-backend-preview) lists required configuration and live gates. The [production readiness record](PRODUCTION-READINESS.md) distinguishes tested code from deployment and Mubit learning evidence. The hosted API is for synthetic or specifically approved data while its privacy and operational decisions remain open.
+
 ## Try it locally
 
 ```bash
@@ -40,7 +46,7 @@ Open <http://127.0.0.1:8080> and sign in as `operator` with `CANOPY_OPERATOR_TOK
 - **Live check:** verdict, latency, policy version and hash, recording choice, and Mubit request ID are stored together.
 - **Human review:** one correction records the verdict, policy rule, reason, and time. It remains local until the Mubit feedback contract is confirmed and implemented.
 - **Evaluation:** `canopy_app/cases.py` has 40 synthetic collection cases and 12 separate holdout cases. The [runbook](docs/OPERATIONS.md#evaluation) explains how to run them and how to interpret the results.
-- **Deployment:** one Gunicorn instance, SQLite on a persistent volume, and a Caddy HTTPS template. The [production gates](PRODUCTION-READINESS.md) distinguish CI checks from live acceptance.
+- **Legacy deployment:** one Gunicorn instance, SQLite on a persistent volume, and a Caddy HTTPS template. The hosted backend uses WorkOS and PostgreSQL. The [production gates](PRODUCTION-READINESS.md) distinguish CI checks from live acceptance.
 
 Application code and the sample policy live in `canopy_app/`; tests live in `tests/`. Root entry points preserve `python canopy.py`, `python manage.py`, and `python evaluate.py`. See the [runbook](docs/OPERATIONS.md) for configuration, deployment, backups, tests, and evidence collection.
 

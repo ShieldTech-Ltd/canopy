@@ -1,4 +1,5 @@
 .env
+.venv/
 canopy.sqlite3*
 reports/
 __pycache__/
