@@ -1,259 +1,49 @@
 # Canopy
 
-> Autonomous compliance monitoring powered by Mubit and Banyan Sapling.
-> The intelligence layer that handles all three verdicts, not just two.
+**Review drafted support replies against a versioned policy, then capture the human correction.** Built by Tanvir and Ritik for the Recurring tasks track at Mubit Night Shift 2026 in London.
 
-Built at **Night Shift 2026**, Mubit Hackathon, Canary Wharf, London.
-
----
-
-## What is Canopy?
-
-Canopy is a self-improving compliance verification agent that routes every decision through
-Mubit's Banyan Sapling model. It runs continuously, verifies regulatory claims against
-evidence, and corrects itself automatically when it gets something wrong.
-
-No human corrects it. No human restarts it. It just gets better.
-
----
-
-## The problem
-
-Banyan Sapling returns three possible verdicts:
-
-| Verdict | Meaning |
-|---|---|
-| `SUPPORTED` | The claim is backed by the evidence |
-| `VIOLATES` | The claim contradicts the evidence |
-| `INSUFFICIENT` | There is not enough evidence to decide |
-
-Most agents treat `INSUFFICIENT` as a failure and stop. That is the wrong approach.
-`INSUFFICIENT` is a signal, not an error. It means the model needs more context before
-it can make a confident decision.
-
-**Canopy is the first agent to handle all three verdicts correctly.**
-
----
+A support reply can be **SUPPORTED**, **VIOLATES**, or **INSUFFICIENT**. The third verdict matters: when the customer facts do not justify an answer, Canopy shows that uncertainty instead of inventing one. This carries forward the original team's focus on handling insufficient evidence, now applied to one repeatable support workflow.
 
 ## How it works
 
-```
-                        ┌─────────────────────────────────┐
-                        │          CANOPY AGENT           │
-                        │                                 │
-  ┌─────────────┐       │   ┌─────────────────────────┐   │
-  │   Claim     │──────►│   │     Banyan Sapling       │   │
-  │   Evidence  │       │   │  (HuggingFace endpoint)  │   │
-  │   Policy    │       │   └────────────┬────────────┘   │
-  └─────────────┘       │                │                │
-                        │      ┌─────────┴──────────┐     │
-                        │      │                    │     │
-                        │  SUPPORTED            VIOLATES  │
-                        │      │                    │     │
-                        │  Log it.          record_outcome│
-                        │  Move on.         fires auto.   │
-                        │                    │            │
-                        │             Mubit trains        │
-                        │             adapter. v++ up.    │
-                        │                                 │
-                        │         INSUFFICIENT            │
-                        │              │                  │
-                        │   1. Fetch extra evidence       │
-                        │      (Wikipedia REST API)       │
-                        │   2. Re-submit to Banyan        │
-                        │   3. Resolve to final verdict   │
-                        │   4. If VIOLATES: correct it    │
-                        └─────────────────────────────────┘
-                                        │
-                                        ▼
-                        ┌─────────────────────────────────┐
-                        │    Live Dashboard  :8080        │
-                        │                                 │
-                        │  Accuracy %     Model version   │
-                        │  Corrections    INSUFF resolved │
-                        │  Live log       Decision table  │
-                        └─────────────────────────────────┘
+```mermaid
+flowchart LR
+    O[Operator enters customer facts<br/>and draft reply] --> W[Canopy review UI]
+    P[Versioned policy] --> W
+    W -->|Server-side model call| M[Mubit OpenAI proxy]
+    M -->|Provider verdict<br/>and Mubit request ID| W
+    W -->|Verdict, policy snapshot,<br/>request ID, latency| D[(SQLite decision trail)]
+    R[Human reviewer] -->|Correct verdict, rule,<br/>and reason| W
+    W -->|Local correction| D
+    D -.->|Feedback integration pending<br/>confirmed Mubit contract| A[Mubit task and adapter]
 ```
 
----
+The model call goes through Mubit's base URL. The API key stays server-side, and Canopy rejects a result without a Mubit request ID. Recording is off by default; the operator can request full recording for fictional or approved cases. A reviewer can correct each decision once, using the policy rules stored with that case.
 
-## Why this matters for Mubit
+**Current limit:** reviewer corrections are saved as `local_only`. The app has not verified a correction reaching Mubit or producing an adapter update. It does not display a simulated model version or claim automatic improvement. The team's earlier autonomous claim-verification and Banyan experiments remain in Git history; the current application is the support-policy workflow shown above.
 
-Mubit's own documentation states:
-
-> "Your application verifies outcomes. An agent saying it succeeded is not enough."
-
-Canopy is that verification layer. It closes the exact loop Mubit was designed to close:
-
-- Every wrong verdict triggers `record_outcome()` with no human involved
-- Every `INSUFFICIENT` case becomes a richer training signal after evidence gathering
-- Every 3 corrections, Mubit promotes a new versioned adapter
-- The frontier model stays untouched; the adapter sits on top and takes over only when it does better
-
-By demo time, the model running is measurably better than the one that started. That proof
-lives in the accuracy chart and the model version counter, updating live on screen.
-
----
-
-## Banyan Sapling integration
-
-Canopy calls the real Banyan Sapling endpoint directly. No API key needed:
-
-```python
-import urllib.request, json
-
-def call_banyan(policy, evidence, claim):
-    payload = json.dumps({
-        "inputs": {"policy": policy, "evidence": evidence, "claim": claim}
-    }).encode()
-    req = urllib.request.Request(
-        "https://6adbee0669a00298cd4774c9.endpoints.huggingface.cloud",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    resp = urllib.request.urlopen(req, timeout=15)
-    data = json.loads(resp.read())
-    return data["status"], data["raw_label"], data["probabilities"], data["timing_ms"]["model"]
-```
-
-The response includes a `status` field (one of five values), a `raw_label` (the model's
-best single guess), calibrated `probabilities` for each verdict, and latency in milliseconds.
-All five are displayed live on the dashboard.
-
----
-
-## How record_outcome() trains the model
-
-When Canopy detects a wrong verdict, it immediately sends a correction to Mubit:
-
-```python
-POST https://api.mubit.ai/openai/v1/outcomes
-
-{
-    "model":          "banyan-sapling",
-    "input":          "Policy: ...\nEvidence: ...\nClaim: ...",
-    "predicted":      "VIOLATES",
-    "correct_output": "SUPPORTED"
-}
-```
-
-Mubit groups corrections by task, builds a versioned adapter, and promotes it once it
-outperforms the base model. The adapter is reversible: if accuracy drops, you roll back
-to the previous version instantly.
-
----
-
-## INSUFFICIENT handling: the core innovation
-
-When Banyan Sapling returns `INSUFFICIENT`, Canopy does not stop. It:
-
-1. Queries Wikipedia's REST API using the claim as a search term
-2. Extracts the most relevant passage (up to 300 characters)
-3. Appends it to the original evidence
-4. Re-submits the enriched claim to Banyan Sapling
-5. Records the resolved verdict
-
-This turns ambiguous cases into resolved training signal instead of wasted calls.
-Over time, the adapter learns which claim types need richer context from the start,
-reducing `INSUFFICIENT` responses on future runs.
-
----
-
-## Running Canopy
-
-### Prerequisites
+## Try it locally
 
 ```bash
-pip install openai
-```
-
-### Configuration
-
-Create a `.env` file in the project root:
-
-```
-MUBIT_API_KEY=your-mubit-api-key
-```
-
-The Banyan Sapling endpoint requires no API key and works out of the box.
-The Mubit key is used only for `record_outcome()` correction feedback.
-
-### Start the agent
-
-```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --require-hashes --only-binary=:all: -r requirements.lock
+export MUBIT_API_KEY="your-mubit-key"
+export CANOPY_OPERATOR_TOKEN="a-random-secret-of-at-least-32-characters"
 python canopy.py
 ```
 
-### Open the dashboard
+Open <http://127.0.0.1:8080> and sign in as `operator` with `CANOPY_OPERATOR_TOKEN`. Use fictional or approved data only. The bundled refund policy is a demo policy, not a customer integration. Without a Mubit key, the interface shows live checks as unavailable.
 
-```
-http://localhost:8080
-```
+## What to inspect
 
-The dashboard auto-refreshes every 2 seconds. No page reload needed.
+- **Live check:** verdict, latency, policy version and hash, recording choice, and Mubit request ID are stored together.
+- **Human review:** one correction records the verdict, policy rule, reason, and time. It remains local until the Mubit feedback contract is confirmed and implemented.
+- **Evaluation:** `canopy_app/cases.py` has 40 synthetic collection cases and 12 separate holdout cases. The [runbook](docs/OPERATIONS.md#evaluation) explains how to run them and how to interpret the results.
+- **Deployment:** one Gunicorn instance, SQLite on a persistent volume, and a Caddy HTTPS template. The [production gates](PRODUCTION-READINESS.md) distinguish CI checks from live acceptance.
 
----
-
-## Dashboard overview
-
-| Metric | What it shows |
-|---|---|
-| Accuracy % | Percentage of correct verdicts since start |
-| Decisions | Total claims processed |
-| Corrections sent | Times record_outcome() fired automatically |
-| INSUFFICIENT caught | Times Banyan Sapling needed more evidence |
-| Resolved with evidence | INSUFFICIENT cases that Canopy resolved autonomously |
-| Model version | Current adapter version promoted by Mubit |
-
-The live log shows every decision, every correction, every evidence fetch, and every
-model promotion in real time.
-
----
-
-## Hackathon track alignment
-
-| Track | How Canopy fits |
-|---|---|
-| **Recurring tasks** | Claim verification runs continuously on the same task type, with corrections becoming model updates |
-| **Own your intelligence layer** | Banyan Sapling (open, task-adapted via Mubit) replaces a closed frontier model for this specific task |
-| **Fast refresh** | New claims feed in continuously and the adapter updates as failure patterns change |
-
-Canopy is the only submission that addresses all three tracks simultaneously.
-
----
-
-## Project structure
-
-```
-canopy/
-├── canopy.py        Main agent and HTTP dashboard server
-├── Procfile         Railway deployment entry point
-├── README.md        This file
-├── RITIK-PLAN.md    Build plan and task division for the team
-├── requirements.txt pip install openai
-└── .gitignore
-```
-
----
-
-## Deployment
-
-Canopy runs on Railway. The `PORT` environment variable is read automatically,
-and the server binds to `0.0.0.0` for external access.
-
-Set one environment variable in the Railway dashboard:
-
-```
-MUBIT_API_KEY=your-mubit-api-key
-```
-
-Everything else runs without configuration.
-
----
+Application code and the sample policy live in `canopy_app/`; tests live in `tests/`. Root entry points preserve `python canopy.py`, `python manage.py`, and `python evaluate.py`. See the [runbook](docs/OPERATIONS.md) for configuration, deployment, backups, tests, and evidence collection.
 
 ## Team
 
-**Tanvir** and **Ritik**, Night Shift 2026, Canary Wharf, London.
-
-Powered by [Mubit](https://mubit.ai) and Banyan Sapling.
+Tanvir Farhad and Ritik Sah. Canopy began as a broader claim-verification prototype; the current application focuses its recurring task on support-policy review and keeps model-learning claims tied to observable Mubit evidence.
