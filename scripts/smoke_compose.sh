@@ -51,6 +51,24 @@ docker inspect "$container_id" --format '{{json .NetworkSettings.Ports}}' \
 
 "${compose[@]}" exec -T canopy python -c \
   'import canopy; canopy.create_decision("synthetic facts", "synthetic reply", "SUPPORTED", "mreq_ci_synthetic", 1)'
+form_token=$(curl --insecure --silent --fail --user "operator:$smoke_token" \
+  https://localhost:18443/ | python3 -c \
+  'import html,re,sys; page=sys.stdin.read(); match=re.search(r"name=\"csrf\" value=\"([^\"]+)\"", page); assert match; print(html.unescape(match.group(1)))')
+cross_origin_status=$(curl --insecure --silent --output /dev/null --write-out '%{http_code}' \
+  --user "operator:$smoke_token" --header 'Origin: https://untrusted.example' \
+  --data-urlencode "csrf=$form_token" --data-urlencode 'id=1' \
+  --data-urlencode 'verdict=VIOLATES' --data-urlencode 'rule=R1' \
+  --data-urlencode 'reason=Synthetic reviewer correction' \
+  https://localhost:18443/review)
+[[ "$cross_origin_status" == 403 ]]
+curl --insecure --silent --fail --user "operator:$smoke_token" \
+  --header 'Origin: https://localhost:18443' \
+  --data-urlencode "csrf=$form_token" --data-urlencode 'id=1' \
+  --data-urlencode 'verdict=VIOLATES' --data-urlencode 'rule=R1' \
+  --data-urlencode 'reason=Synthetic reviewer correction' \
+  https://localhost:18443/review >/dev/null
+"${compose[@]}" exec -T canopy python -c \
+  'import canopy; row=canopy.recent()[0]; assert row["review_verdict"]=="VIOLATES" and row["feedback_status"]=="local_only"'
 "${compose[@]}" restart canopy
 "${compose[@]}" exec -T canopy python -c \
   'import canopy; rows=canopy.recent(); assert len(rows)==1 and rows[0]["policy_hash"]==canopy.POLICY_HASH'
