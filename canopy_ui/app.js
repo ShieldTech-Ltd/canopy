@@ -1,8 +1,12 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const state = {
+  mode: "verify",
   selected: null,
   run: null,
+  chat: null,
+  chatSelected: null,
+  chats: [],
   busy: false,
   cases: [],
   tab: "execution",
@@ -26,11 +30,11 @@ function notice(text) {
     $("notice").hidden = true;
   }, 6000);
 }
-async function api(path, options = {}) {
+async function api(path, options = {}, timeoutMs = 15000) {
   const response = await fetch(path, {
     ...options,
     headers: { "Content-Type": "application/json", ...options.headers },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const data = await response.json();
   if (!response.ok)
@@ -53,16 +57,22 @@ function busy(value) {
   state.busy = value;
   $("run-button").disabled = value;
   $("new-case").disabled = value;
+  $("new-chat").disabled = value;
+  $("chat-mode").disabled = value;
   $("reset-case").disabled = value;
-  $("run-status").textContent = value ? "running" : "ready";
+  $("run-status").textContent = value
+    ? state.mode === "chat"
+      ? "replying"
+      : "running"
+    : "ready";
 }
-function turn(role, text) {
+function turn(role, text, at = new Date()) {
   const wrapper = node("article", `turn ${role}`);
   const label = node("div", "turn-label", role === "user" ? "you" : "canopy");
   const time = node(
     "span",
     "muted",
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   );
   label.append(time);
   const body = node("div", "turn-body", text);
@@ -76,6 +86,7 @@ function scroll() {
 }
 function newCase() {
   if (state.busy) return;
+  state.mode = "verify";
   state.selected = null;
   state.run = null;
   $("transcript").replaceChildren(welcomeTemplate.cloneNode(true));
@@ -84,10 +95,58 @@ function newCase() {
   $("prompt").value = "";
   renderEvents([]);
   renderEvidence(null);
+  modeControls();
   renderCases();
+  renderChats();
   $("prompt").focus();
 }
 const welcomeTemplate = $("welcome").cloneNode(true);
+function modeControls() {
+  const chatting = state.mode === "chat";
+  $("chat-mode").textContent = chatting ? "Verify a case" : "Chat with Canopy";
+  $("reset-case").textContent = chatting ? "New chat" : "New case";
+  $("prompt-label").textContent = chatting
+    ? "Message Canopy"
+    : "Describe a case";
+  $("prompt").placeholder = chatting
+    ? "Ask Canopy anything..."
+    : "Describe a case, or paste Policy: ... Evidence: ... Claim: ...";
+  $("run-button").textContent = chatting ? "Send message ↵" : "Run check ↵";
+  document.querySelector(".composer-foot span").textContent = chatting
+    ? "Enter to send · Shift + Enter for a new line"
+    : "Enter to run · Shift + Enter for a new line";
+  $("transcript").setAttribute(
+    "aria-label",
+    chatting ? "Chat conversation" : "Case conversation",
+  );
+}
+function newChat() {
+  if (state.busy) return;
+  state.mode = "chat";
+  state.chat = null;
+  state.chatSelected = null;
+  const welcome = node("section", "welcome");
+  welcome.id = "welcome";
+  welcome.append(
+    node("div", "session-heading", "Canopy / chat"),
+    node("p", "welcome-lead", "Ask me anything."),
+    node(
+      "p",
+      "",
+      "This conversation goes through Mubit. For a policy verdict, switch to Verify a case.",
+    ),
+  );
+  $("transcript").replaceChildren(welcome);
+  $("run-title").textContent = "new chat";
+  $("prompt").value = "";
+  renderEvents([]);
+  renderEvidence(null);
+  tab("execution");
+  modeControls();
+  renderCases();
+  renderChats();
+  $("prompt").focus();
+}
 function wireSamples() {
   for (const key of ["refund", "access"]) {
     const button = $(`sample-${key}`);
@@ -180,7 +239,7 @@ function renderCases() {
   for (const item of state.cases) {
     const button = node(
       "button",
-      `case-link${item.id === state.selected ? " selected" : ""}`,
+      `case-link${state.mode === "verify" && item.id === state.selected ? " selected" : ""}`,
     );
     button.append(
       node(
@@ -201,6 +260,109 @@ function renderCases() {
 async function refreshCases() {
   state.cases = await api("/api/cases");
   renderCases();
+}
+function renderChats() {
+  const list = $("chat-list");
+  list.replaceChildren();
+  $("chat-count").textContent = state.chats.length;
+  if (!state.chats.length)
+    list.append(node("p", "nav-empty", "Your chats will appear here."));
+  for (const item of state.chats) {
+    const button = node(
+      "button",
+      `case-link${state.mode === "chat" && item.id === state.chatSelected ? " selected" : ""}`,
+    );
+    button.append(
+      node("span", "case-title", item.title.slice(0, 55)),
+      node("span", "case-meta", `${item.id.slice(0, 6)} / chat`),
+    );
+    button.addEventListener("click", () => openChat(item.id));
+    list.append(button);
+  }
+}
+async function refreshChats() {
+  state.chats = await api("/api/chats");
+  renderChats();
+}
+function chatAnswer(body, message) {
+  body.replaceChildren(
+    node("div", "chat-answer", message.content),
+    node(
+      "div",
+      "result-meta",
+      `${message.ms.toLocaleString()} ms · ${message.model} through Mubit\n${message.request_id}`,
+    ),
+  );
+}
+async function openChat(id) {
+  if (state.busy) return;
+  try {
+    const chat = await api(`/api/chats/${id}`);
+    state.mode = "chat";
+    state.chat = chat;
+    state.chatSelected = id;
+    $("transcript").replaceChildren();
+    for (const message of chat.messages) {
+      const body = turn(
+        message.role === "user" ? "user" : "agent",
+        "",
+        message.at,
+      );
+      if (message.role === "assistant") chatAnswer(body, message);
+      else body.textContent = message.content;
+    }
+    $("run-title").textContent = `chat ${id.slice(0, 8)}`;
+    renderEvents(chat.events);
+    renderEvidence(null);
+    tab("execution");
+    modeControls();
+    renderCases();
+    renderChats();
+    scroll();
+  } catch (error) {
+    notice(error.message);
+  }
+}
+async function startChat(text) {
+  if (state.busy) return;
+  busy(true);
+  $("welcome")?.remove();
+  turn("user", text);
+  const body = turn("agent", "");
+  body.append(node("span", "pending", "Waiting for Canopy through Mubit"));
+  $("prompt").value = "";
+  scroll();
+  tab("execution");
+  if (innerWidth > 680) trace(true);
+  try {
+    const path = state.chatSelected
+      ? `/api/chats/${state.chatSelected}/messages`
+      : "/api/chats";
+    const chat = await api(
+      path,
+      {
+        method: "POST",
+        body: JSON.stringify({ input: text, record: $("record").checked }),
+      },
+      55000,
+    );
+    state.chat = chat;
+    state.chatSelected = chat.id;
+    $("run-title").textContent = `chat ${chat.id.slice(0, 8)}`;
+    chatAnswer(body, chat.messages.at(-1));
+    renderEvents(chat.events);
+    $("connection").textContent = "Mubit replied";
+    $("connection").className = "connection connected";
+    await refreshChats();
+    scroll();
+  } catch (error) {
+    body.replaceChildren(node("p", "error-text", error.message));
+    $("prompt").value = text;
+    scroll();
+  } finally {
+    busy(false);
+    $("prompt").focus();
+  }
 }
 function resultBody(body, run) {
   body.replaceChildren();
@@ -358,6 +520,7 @@ async function openCase(id) {
   if (state.busy) return;
   try {
     const run = await api(`/api/runs/${id}`);
+    state.mode = "verify";
     state.selected = id;
     state.run = run;
     $("transcript").replaceChildren();
@@ -367,7 +530,9 @@ async function openCase(id) {
     $("run-title").textContent = `case ${id.slice(0, 8)}`;
     renderEvents(run.events);
     renderEvidence(run);
+    modeControls();
     renderCases();
+    renderChats();
   } catch (error) {
     notice(error.message);
   }
@@ -441,7 +606,10 @@ async function start(text, fields = {}) {
 $("composer").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = $("prompt").value.trim();
-  if (text) start(text);
+  if (text) {
+    if (state.mode === "chat") startChat(text);
+    else start(text);
+  }
 });
 $("prompt").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
@@ -450,7 +618,13 @@ $("prompt").addEventListener("keydown", (e) => {
   }
 });
 $("new-case").addEventListener("click", newCase);
-$("reset-case").addEventListener("click", newCase);
+$("new-chat").addEventListener("click", newChat);
+$("chat-mode").addEventListener("click", () =>
+  state.mode === "chat" ? newCase() : newChat(),
+);
+$("reset-case").addEventListener("click", () =>
+  state.mode === "chat" ? newChat() : newCase(),
+);
 $("trace-toggle").addEventListener("click", () =>
   trace(document.querySelector(".shell").classList.contains("trace-hidden")),
 );
@@ -473,6 +647,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && innerWidth <= 680) trace(false);
 });
 wireSamples();
+modeControls();
 if (innerWidth <= 680) trace(false);
 api("/api/status")
   .then((config) => {
@@ -491,3 +666,4 @@ api("/api/status")
     $("connection").className = "connection failed";
   });
 refreshCases().catch((error) => notice(error.message));
+refreshChats().catch((error) => notice(error.message));

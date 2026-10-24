@@ -2,6 +2,8 @@
 canopy.sqlite3*
 canopy-agent.sqlite3*
 reports-preview*.log
+chat-preview*.log
+canopy-chat.sqlite3*
 reports/
 __pycache__/
 *.pyc

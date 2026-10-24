@@ -25,6 +25,9 @@
         <button class="new-case" id="new-case">
           New case <kbd>Ctrl K</kbd>
         </button>
+        <button class="new-case new-chat" id="new-chat">New chat</button>
+        <div class="section-label">CHATS <span id="chat-count">0</span></div>
+        <nav id="chat-list" aria-label="Recent chats"></nav>
         <div class="section-label">
           THIS SESSION <span id="case-count">0</span>
         </div>
@@ -51,6 +54,7 @@
             ><span class="run-title" id="run-title">new case</span>
           </div>
           <div class="pane-actions">
+            <button class="text-button" id="chat-mode">Chat with Canopy</button>
             <button class="text-button" id="reset-case">New case</button>
             <button class="text-button" id="trace-toggle" aria-expanded="true">
               Hide trace
@@ -96,7 +100,8 @@
         <form class="composer" id="composer">
           <div class="prompt-row">
             <span class="prompt-char" aria-hidden="true">&gt;</span
-            ><label class="sr-only" for="prompt">Describe a case</label
+            ><label class="sr-only" for="prompt" id="prompt-label"
+              >Describe a case</label
             ><textarea
               id="prompt"
               rows="2"

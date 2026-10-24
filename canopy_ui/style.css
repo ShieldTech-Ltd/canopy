@@ -151,6 +151,12 @@ button {
   border-color: var(--accent);
   background: var(--raised);
 }
+.new-case:not(.new-chat) {
+  margin-bottom: 7px;
+}
+.new-chat {
+  margin-bottom: 24px;
+}
 kbd {
   font-family: inherit;
   font-size: 9px;
@@ -178,6 +184,13 @@ kbd {
   overflow: auto;
   flex: 1;
   min-height: 0;
+}
+#chat-list {
+  margin: 10px 0 20px;
+  max-height: 156px;
+  overflow: auto;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
 }
 .case-link {
   display: block;

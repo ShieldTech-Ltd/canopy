@@ -32,6 +32,18 @@ class Response:
         return False
 
 
+class ChatResponse(Response):
+    def __init__(self, answer, request_id="mreq_chat_verified"):
+        self.headers = {"x-middleware-request-id": request_id}
+        self.data = json.dumps(
+            {
+                "model": "gpt-4.1-mini",
+                "choices": [{"message": {"content": answer}}],
+                "usage": {"total_tokens": 42},
+            }
+        ).encode()
+
+
 class TerminalTests(unittest.TestCase):
     fields = {
         "policy": "Damaged items qualify for a refund within 30 days.",
@@ -63,6 +75,7 @@ class TerminalTests(unittest.TestCase):
         for item in self.patches:
             item.start()
         runtime.RUNS.clear()
+        runtime.CHAT_BUSY.clear()
         self.client = runtime.app.test_client()
         self.client.get("/").close()
 
@@ -106,6 +119,73 @@ class TerminalTests(unittest.TestCase):
         )
         self.assertNotIn("accuracy", data)
         self.assertNotIn("version", data)
+
+    def test_chat_is_multi_turn_and_all_calls_use_mubit(self):
+        with patch.object(
+            runtime.urllib.request,
+            "urlopen",
+            side_effect=[
+                ChatResponse("Hello."),
+                ChatResponse("You asked me to say hello."),
+            ],
+        ) as provider:
+            first = self.client.post("/api/chats", json={"input": "Say hello"})
+            self.assertEqual(first.status_code, 200)
+            ident = first.json["id"]
+            self.assertEqual(first.json["messages"][1]["content"], "Hello.")
+            second = self.client.post(
+                f"/api/chats/{ident}/messages",
+                json={"input": "What did I ask?", "record": True},
+            )
+            self.assertEqual(second.status_code, 200)
+            self.assertEqual(len(second.json["messages"]), 4)
+            self.assertEqual(provider.call_count, 2)
+            calls = [call.args[0] for call in provider.call_args_list]
+            self.assertTrue(
+                all(
+                    req.full_url == "https://api.mubit.ai/openai/v1/chat/completions"
+                    for req in calls
+                )
+            )
+            self.assertEqual(calls[0].get_header("X-middleware-record"), "off")
+            self.assertEqual(calls[1].get_header("X-middleware-record"), "full")
+            sent = json.loads(calls[1].data)["messages"]
+            self.assertEqual(
+                [item["role"] for item in sent], ["system", "user", "assistant", "user"]
+            )
+            self.assertEqual(sent[1]["content"], "Say hello")
+            self.assertEqual(sent[2]["content"], "Hello.")
+        self.assertEqual(self.client.get("/api/chats").json[0]["id"], ident)
+        self.assertEqual(
+            self.client.get(f"/api/chats/{ident}").json["messages"][3]["request_id"],
+            "mreq_chat_verified",
+        )
+
+    def test_chat_is_private_to_browser_session(self):
+        with patch.object(
+            runtime.urllib.request, "urlopen", return_value=ChatResponse("Hi")
+        ):
+            first = self.client.post("/api/chats", json={"input": "Hi"})
+        ident = first.json["id"]
+        other = runtime.app.test_client()
+        other.get("/").close()
+        self.assertEqual(other.get("/api/chats").json, [])
+        self.assertEqual(other.get(f"/api/chats/{ident}").status_code, 404)
+        self.assertEqual(
+            other.post(
+                f"/api/chats/{ident}/messages", json={"input": "Hi"}
+            ).status_code,
+            404,
+        )
+
+    def test_chat_rejects_unverified_reply_without_saving(self):
+        with patch.object(
+            runtime.urllib.request, "urlopen", return_value=ChatResponse("Hi", "")
+        ):
+            response = self.client.post("/api/chats", json={"input": "Hi"})
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("provenance", response.json["error"])
+        self.assertEqual(self.client.get("/api/chats").json, [])
 
     def test_recording_is_opt_in(self):
         _, provider = self.run_case({**self.fields, "record": True})
