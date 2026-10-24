@@ -3,8 +3,8 @@ FROM python:3.11-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     CANOPY_BIND_HOST=0.0.0.0 CANOPY_DB_PATH=/data/canopy.sqlite3
 WORKDIR /app
-COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt \
+COPY requirements.txt requirements.lock ./
+RUN python -m pip install --no-cache-dir --require-hashes --only-binary=:all: -r requirements.lock \
     && useradd --system --uid 10001 --home /app canopy \
     && mkdir /data \
     && chown canopy:canopy /data

@@ -18,7 +18,7 @@ The bundled policy and cases are fictional demo material. The app has no custome
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install --require-hashes --only-binary=:all: -r requirements.lock
 export MUBIT_API_KEY="your-key"
 export CANOPY_OPERATOR_TOKEN="a-random-secret-of-at-least-32-characters"
 python canopy.py
@@ -27,6 +27,8 @@ python canopy.py
 Open http://127.0.0.1:8080 and enter user `operator` with `CANOPY_OPERATOR_TOKEN` as the password. Use only fictional or approved test data. Generate a token with `python -c 'import secrets; print(secrets.token_urlsafe(48))'` and keep it out of source and screenshots. The database is `canopy.sqlite3` unless `CANOPY_DB_PATH` is set. The optional `MUBIT_MODEL` selects a provider model available to the key; the default is `gpt-4.1-mini`. A key alone does not prove model access, feedback access, or training.
 
 `python canopy.py` validates the configuration and starts Gunicorn with one worker and eight threads. This keeps the in-memory form token and call-concurrency limit consistent within the instance. Use one app instance per SQLite database; multiple replicas require shared auth/session state, a different database, and a global rate limit.
+
+`requirements.txt` lists direct dependencies. `requirements.lock` pins and hashes all runtime dependencies for Python 3.11. Update it deliberately with `pip-compile --generate-hashes --output-file requirements.lock requirements.txt` using pip-tools 7.6.2, then rerun tests, the dependency audit, and the image build.
 
 `CANOPY_POLICY_PATH` can point to an operator-reviewed JSON policy with a nonempty `version` and 1–30 rules, each with a unique `id` and `text`. The app validates the file at startup and records its hash on each decision. Restart to load a new version. Existing decisions retain their version and hash, but the old policy text must also be retained outside the app for a complete audit. The bundled evaluation labels apply only to the exact bundled sample policy.
 
