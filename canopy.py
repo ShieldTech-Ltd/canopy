@@ -32,7 +32,7 @@ BANYAN_URL     = "https://6adbee0669a00298cd4774c9.endpoints.huggingface.cloud"
 MUBIT_KEY      = os.environ.get("MUBIT_API_KEY", "")
 MUBIT_BASE_URL = "https://api.mubit.ai/openai/v1"
 MODEL          = "banyan-sapling"
-PORT           = 8080
+PORT           = int(os.environ.get("PORT", 8080))
 TICK_SECONDS   = 3.0
 # ────────────────────────────────────────────────────────────────────────────
 
