@@ -58,7 +58,8 @@ function busy(value) {
   $("run-button").disabled = value;
   $("new-case").disabled = value;
   $("new-chat").disabled = value;
-  $("chat-mode").disabled = value;
+  $("mode-verify").disabled = value;
+  $("mode-chat").disabled = value;
   $("reset-case").disabled = value;
   $("run-status").textContent = value
     ? state.mode === "chat"
@@ -90,6 +91,7 @@ function newCase() {
   state.selected = null;
   state.run = null;
   $("transcript").replaceChildren(welcomeTemplate.cloneNode(true));
+  $("transcript").scrollTop = 0;
   wireSamples();
   $("run-title").textContent = "new case";
   $("prompt").value = "";
@@ -103,7 +105,8 @@ function newCase() {
 const welcomeTemplate = $("welcome").cloneNode(true);
 function modeControls() {
   const chatting = state.mode === "chat";
-  $("chat-mode").textContent = chatting ? "Verify a case" : "Chat with Canopy";
+  $("mode-verify").setAttribute("aria-pressed", String(!chatting));
+  $("mode-chat").setAttribute("aria-pressed", String(chatting));
   $("reset-case").textContent = chatting ? "New chat" : "New case";
   $("prompt-label").textContent = chatting
     ? "Message Canopy"
@@ -129,14 +132,25 @@ function newChat() {
   welcome.id = "welcome";
   welcome.append(
     node("div", "session-heading", "Canopy / chat"),
-    node("p", "welcome-lead", "Ask me anything."),
+    node("p", "welcome-lead", "Ask Canopy a question."),
     node(
       "p",
       "",
-      "This conversation goes through Mubit. For a policy verdict, switch to Verify a case.",
+      "Chat is for general conversation. Replies go through Mubit, and this thread can be reopened from the sidebar.",
     ),
   );
+  const route = node("div", "chat-route");
+  route.append(
+    node("strong", "", "Need a policy decision?"),
+    node("p", "", "Verify a case checks a claim against the policy and evidence you supply. It can request missing facts and shows the Mubit request trace."),
+  );
+  const verify = node("button", "underlined-button", "Open Verify a case");
+  verify.type = "button";
+  verify.addEventListener("click", newCase);
+  route.append(verify);
+  welcome.append(route);
   $("transcript").replaceChildren(welcome);
+  $("transcript").scrollTop = 0;
   $("run-title").textContent = "new chat";
   $("prompt").value = "";
   renderEvents([]);
@@ -235,7 +249,7 @@ function renderCases() {
   list.replaceChildren();
   $("case-count").textContent = state.cases.length;
   if (!state.cases.length)
-    list.append(node("p", "nav-empty", "Your checked cases will appear here."));
+    list.append(node("p", "nav-empty", "No cases yet."));
   for (const item of state.cases) {
     const button = node(
       "button",
@@ -266,7 +280,7 @@ function renderChats() {
   list.replaceChildren();
   $("chat-count").textContent = state.chats.length;
   if (!state.chats.length)
-    list.append(node("p", "nav-empty", "Your chats will appear here."));
+    list.append(node("p", "nav-empty", "No chats yet."));
   for (const item of state.chats) {
     const button = node(
       "button",
@@ -302,6 +316,7 @@ async function openChat(id) {
     state.chat = chat;
     state.chatSelected = id;
     $("transcript").replaceChildren();
+    $("transcript").scrollTop = 0;
     for (const message of chat.messages) {
       const body = turn(
         message.role === "user" ? "user" : "agent",
@@ -524,6 +539,7 @@ async function openCase(id) {
     state.selected = id;
     state.run = run;
     $("transcript").replaceChildren();
+    $("transcript").scrollTop = 0;
     turn("user", run.input || run.fields.claim);
     const body = turn("agent", "");
     resultBody(body, run);
@@ -619,9 +635,12 @@ $("prompt").addEventListener("keydown", (e) => {
 });
 $("new-case").addEventListener("click", newCase);
 $("new-chat").addEventListener("click", newChat);
-$("chat-mode").addEventListener("click", () =>
-  state.mode === "chat" ? newCase() : newChat(),
-);
+$("mode-verify").addEventListener("click", () => {
+  if (state.mode !== "verify") newCase();
+});
+$("mode-chat").addEventListener("click", () => {
+  if (state.mode !== "chat") newChat();
+});
 $("reset-case").addEventListener("click", () =>
   state.mode === "chat" ? newChat() : newCase(),
 );

@@ -10,7 +10,7 @@ Give Canopy the policy, what happened, and the claim to test. It requests missin
 
 The landing page opens in **Chat with Canopy** for ordinary multi-turn text conversation. Select **Verify a case** for the policy workflow. New chat starts a separate thread; earlier chats can be reopened from the sidebar. The built-in refund and access cases are fictional demo examples, not measured customer results.
 
-![A completed fictional policy check and its Mubit execution trace](docs/demo/terminal.jpg)
+![Canopy's verification workspace with example cases, session history, and an empty execution trace](docs/demo/terminal.jpg)
 
 ## Architecture
 
