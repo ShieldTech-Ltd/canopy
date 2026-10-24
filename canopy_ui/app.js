@@ -654,7 +654,7 @@ api("/api/status")
     $("model-name").textContent = config.model;
     $("build-label").textContent = config.build;
     $("connection").textContent = config.configured
-      ? "Mubit configured"
+      ? "Mubit key configured"
       : "Mubit key missing";
     $("connection").className =
       `connection ${config.configured ? "connected" : "failed"}`;
