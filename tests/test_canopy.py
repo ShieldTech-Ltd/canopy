@@ -4,6 +4,8 @@ import sqlite3
 import json
 import shutil
 import os
+import subprocess
+import sys
 from contextlib import closing
 from types import SimpleNamespace
 from pathlib import Path
@@ -143,6 +145,19 @@ class CanopyTests(unittest.TestCase):
         ), patch.object(canopy, "OPERATOR_TOKEN", ""), patch.object(canopy, "DEMO_MODE", False):
             with self.assertRaises(ValueError):
                 canopy.validate_config()
+
+    def test_platform_port_uses_public_bind_with_auth_gate(self):
+        env = os.environ.copy()
+        for key in ("CANOPY_BIND_HOST", "CANOPY_PORT", "CANOPY_DEMO_MODE",
+                    "CANOPY_OPERATOR_TOKEN_FILE", "MUBIT_API_KEY_FILE"):
+            env.pop(key, None)
+        env.update({"PORT": "18555", "CANOPY_PUBLIC_ORIGIN": "https://example.test",
+                    "CANOPY_OPERATOR_TOKEN": "t" * 40})
+        output = subprocess.check_output(
+            [sys.executable, "-c", "from canopy_app import canopy; canopy.validate_config(); "
+             "print(canopy.HOST, canopy.PORT)"], env=env, cwd=canopy.PROJECT_ROOT, text=True
+        )
+        self.assertEqual(output.strip(), "0.0.0.0 18555")
 
     def test_backup_and_retention_are_explicit(self):
         old = canopy.create_decision("old", "reply", "SUPPORTED", "mreq_old", 12)

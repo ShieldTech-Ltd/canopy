@@ -32,6 +32,8 @@ Open http://127.0.0.1:8080 and enter user `operator` with `CANOPY_OPERATOR_TOKEN
 
 `python canopy.py` validates the configuration and starts Gunicorn with one worker and eight threads. This keeps the in-memory form token and call-concurrency limit consistent within the instance. Use one app instance per SQLite database; multiple replicas require shared auth/session state, a different database, and a global rate limit.
 
+The root `Procfile` is retained for a platform that supplies `PORT`: Canopy reads that port and binds to all interfaces, while still requiring a 32+ character operator token and an HTTPS `CANOPY_PUBLIC_ORIGIN`. Set a persistent `CANOPY_DB_PATH` and secret values or file paths in that platform; an ephemeral filesystem will lose reviews on restart. The Compose deployment remains the tested single-host path.
+
 `requirements.txt` lists direct dependencies. `requirements.lock` pins and hashes all runtime dependencies for Python 3.11. Update it deliberately with `pip-compile --generate-hashes --output-file requirements.lock requirements.txt` using pip-tools 7.6.2, then rerun tests, the dependency audit, and the image build.
 
 `CANOPY_POLICY_PATH` can point to an operator-reviewed JSON policy with a nonempty `version` and 1–30 rules, each with a unique `id` and `text`. The app validates the file at startup and records its hash and full rule snapshot on each new decision. Restart to load a new version. Keep approved policy source revisions outside the app as well, so the approval history can be audited. The bundled evaluation labels apply only to the exact bundled sample policy.

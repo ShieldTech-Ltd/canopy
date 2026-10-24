@@ -57,7 +57,9 @@ def load_policy(path):
 
 POLICY = load_policy(POLICY_PATH)
 DB_PATH = Path(os.getenv("CANOPY_DB_PATH", PROJECT_ROOT / "canopy.sqlite3"))
-HOST, PORT = os.getenv("CANOPY_BIND_HOST", "127.0.0.1"), int(os.getenv("CANOPY_PORT", "8080"))
+PLATFORM_PORT = os.getenv("PORT")
+HOST = os.getenv("CANOPY_BIND_HOST", "0.0.0.0" if PLATFORM_PORT else "127.0.0.1")
+PORT = int(os.getenv("CANOPY_PORT", PLATFORM_PORT or "8080"))
 MODEL, KEY = os.getenv("MUBIT_MODEL", "gpt-4.1-mini"), secret("MUBIT_API_KEY")
 OPERATOR_TOKEN = secret("CANOPY_OPERATOR_TOKEN")
 DEMO_MODE = os.getenv("CANOPY_DEMO_MODE") == "1"
