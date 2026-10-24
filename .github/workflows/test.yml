@@ -15,7 +15,7 @@ jobs:
       - run: python -m pip_audit -r requirements.lock --progress-spinner off
       - run: python -m unittest -v
       - run: docker compose --env-file deploy/env.example -f deploy/compose.yaml config --quiet
-      - run: docker compose --env-file deploy/env.example -f deploy/compose.yaml run --rm --no-deps caddy adapt --config /etc/caddy/Caddyfile --validate >/dev/null
+      - run: docker compose --env-file deploy/env.example -f deploy/compose.yaml run --rm --no-deps caddy caddy adapt --config /etc/caddy/Caddyfile --validate >/dev/null
       - run: docker build --tag canopy:pr .
       - name: Smoke test container runtime
         run: |
