@@ -650,32 +650,33 @@ def review(ident):
         return jsonify(
             error="Choose a verdict and add a reason (3 to 2,000 characters)."
         ), 400
-    correction = dict(
+    review_data = dict(
         verdict=verdict,
         reason=reason.strip(),
         saved_at=now(),
+        kind="confirmation" if verdict == run["result"]["verdict"] else "correction",
         status="local_only",
         request_id=run["result"]["request_id"],
     )
     with closing(database()) as db:
         changed = db.execute(
             "UPDATE agent_cases SET review=? WHERE id=? AND owner=? AND review IS NULL",
-            (json.dumps(correction), ident, g.owner),
+            (json.dumps(review_data), ident, g.owner),
         ).rowcount
         db.commit()
     if not changed:
         return jsonify(error="This case has already been reviewed."), 409
     with LOCK:
         if ident in RUNS:
-            RUNS[ident]["review"] = correction
+            RUNS[ident]["review"] = review_data
             event(
                 RUNS[ident],
                 "review.save",
                 "completed",
-                "Human correction saved locally; Mubit feedback submission is not connected",
+                f"Human {review_data['kind']} saved locally; Mubit feedback submission is not connected",
             )
             save(RUNS[ident])
-    return jsonify(correction)
+    return jsonify(review_data)
 
 
 def main():

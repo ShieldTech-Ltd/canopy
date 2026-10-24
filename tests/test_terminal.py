@@ -232,12 +232,26 @@ class TerminalTests(unittest.TestCase):
         }
         response = self.client.post(path, json=review)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["kind"], "correction")
         self.assertEqual(response.json["status"], "local_only")
         self.assertEqual(response.json["request_id"], data["result"]["request_id"])
         self.assertEqual(self.client.post(path, json=review).status_code, 409)
         runtime.RUNS.clear()
         stored = self.client.get("/api/runs/" + data["id"]).json
         self.assertEqual(stored["review"]["reason"], review["reason"])
+
+    def test_matching_human_verdict_is_labelled_confirmation(self):
+        data, _ = self.run_case()
+        response = self.client.post(
+            "/api/runs/" + data["id"] + "/review",
+            json={"verdict": "VIOLATES", "reason": "The exception applies."},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["kind"], "confirmation")
+        self.assertEqual(response.json["status"], "local_only")
+        stored = self.client.get("/api/runs/" + data["id"]).json
+        self.assertEqual(stored["review"]["kind"], "confirmation")
+        self.assertIn("Human confirmation saved locally", stored["events"][-1]["message"])
 
     def test_cases_are_scoped_to_browser_session(self):
         data, _ = self.run_case()

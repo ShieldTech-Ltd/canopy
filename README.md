@@ -4,7 +4,7 @@
 
 **Policy checks you can inspect.** Canopy is a Night Shift prototype for support and operations teams who need to check a claim against a supplied policy and case evidence. It returns **SUPPORTED**, **VIOLATES**, or **INSUFFICIENT**, with a reason and an inspectable execution trace.
 
-[Open the deployed app](https://canopy-sbs0.onrender.com/) · [Demo recording script](docs/submission/RECORDING-SCRIPT.md) · [Acceptance checklist](docs/DEMO-ACCEPTANCE.md)
+[Open the deployed app](https://canopy-sbs0.onrender.com/) · [Two-minute demo guide](docs/submission/RECORDING-SCRIPT.md)
 
 Give Canopy the policy, what happened, and the claim to test. It requests missing facts instead of filling them in. The app routes model calls through Mubit and shows the returned `mreq_` request IDs. A person can confirm or correct a verdict with a written reason; that review is currently stored in Canopy only.
 
@@ -37,7 +37,7 @@ flowchart LR
 
 **Current limitation:** human corrections are saved locally. The event team's supported correction-to-adapter integration is not connected. Canopy does not report that a model was trained, invent adapter versions, or claim measured accuracy improvement. A recorded call is not necessarily a *kept* training example.
 
-All inference in this entrypoint goes through `https://api.mubit.ai/openai/v1`. Banyan Sapling's direct Hugging Face endpoint is not used by this workflow.
+All inference in this entrypoint goes through `https://api.mubit.ai/openai/v1`.
 
 ## Run locally
 
@@ -71,7 +71,7 @@ The browser's training-retention checkbox requests full recording for the verifi
 
 A changed answer after adding evidence is context enrichment. It is not proof of model training. Use separate held-out cases and trusted labels before claiming an improvement.
 
-The [recording script](docs/submission/RECORDING-SCRIPT.md) uses the fictional damaged-item exception and includes an honest ending if no adapter has passed. A [four-slide PDF deck](output/pdf/canopy-night-shift-demo.pdf) is available as optional supporting material; check the current `/submit` form before uploading anything.
+The [two-minute recording guide](docs/submission/RECORDING-SCRIPT.md) uses the fictional damaged-item exception and includes an honest ending if no adapter has passed. The event submission accepts a video, not a slide deck.
 
 ## Deployment
 
@@ -88,10 +88,10 @@ python -m unittest discover -s tests -p test_terminal.py -v
 node --check canopy_ui/app.js
 ```
 
-The terminal tests cover real gateway request construction, provenance validation, missing evidence, recording choice, provider failure and recovery, case ownership, durable reviews, duplicate review rejection, limits and authentication. Provider responses are mocked in unit tests. Live browser verification is reported separately in the readiness report.
+The terminal tests cover gateway request construction, provenance validation, missing evidence, recording choice, provider failure and recovery, case ownership, durable local reviews, duplicate review rejection, limits and authentication. Provider responses are mocked in unit tests. These tests do not prove the deployed service or Mubit adapter status.
 They also cover multi-turn chat context, session isolation, recording choice and refusal to save replies without Mubit provenance.
 
-Run the [demo acceptance checklist](docs/DEMO-ACCEPTANCE.md) before recording. It separates source tests, deployed behavior, Mubit console evidence, and the unverified correction-to-adapter gate.
+Before recording, verify the deployed build, a fresh request in Mubit Requests, a review reopened in the same session, and the task's actual adapter status. The [recording guide](docs/submission/RECORDING-SCRIPT.md) lists those checks.
 
 ## Files
 
