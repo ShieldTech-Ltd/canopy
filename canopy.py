@@ -170,11 +170,18 @@ def send_correction(input_text, predicted, correct):
             pass
     return "logged"
 
-def parse_with_mubit(user_text):
+DOMAIN_PROMPTS = {
+    "compliance":        "Extract a regulatory compliance check. Return JSON with keys: policy, evidence, claim. Infer all three from the user's description. Return only JSON.",
+    "contract":          "Extract a contract review check. Policy = the contract clause or obligation, Evidence = what actually happened or was delivered, Claim = the assertion being tested. Return JSON with keys: policy, evidence, claim. Return only JSON.",
+    "risk":              "Extract a risk assessment check. Policy = the risk control or threshold, Evidence = the observed metric or event, Claim = whether the risk is within acceptable bounds. Return JSON with keys: policy, evidence, claim. Return only JSON.",
+}
+
+def parse_with_mubit(user_text, domain="compliance"):
     if not MUBIT_KEY:
         return None
     try:
-        payload = json.dumps({"model":"gpt-4.1-mini","messages":[{"role":"system","content":"Extract a compliance check. Return JSON with keys: policy, evidence, claim. Infer from context if needed. Return only JSON."},{"role":"user","content":user_text}],"max_tokens":400}).encode()
+        system_prompt = DOMAIN_PROMPTS.get(domain, DOMAIN_PROMPTS["compliance"])
+        payload = json.dumps({"model":"gpt-4.1-mini","messages":[{"role":"system","content":system_prompt},{"role":"user","content":user_text}],"max_tokens":400}).encode()
         req = urllib.request.Request(MUBIT_BASE_URL+"/chat/completions", data=payload, headers={"Authorization":f"Bearer {MUBIT_KEY}","Content-Type":"application/json"}, method="POST")
         resp = urllib.request.urlopen(req, timeout=10)
         data = json.loads(resp.read())
@@ -353,6 +360,19 @@ html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system
 .send-btn:hover{background:#1f4a1f}
 .send-btn:disabled{opacity:.4;cursor:default}
 .input-hint{font-size:10px;color:#222;margin-top:6px;text-align:center}
+/* Training chart */
+.chart-wrap{padding:12px 16px;border-top:1px solid #0e0e18}
+.chart-title{font-size:10px;color:#333;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.chart-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.chart-label{font-size:10px;color:#444;width:40px;text-align:right;flex-shrink:0}
+.chart-track{background:#111;border-radius:3px;height:8px;flex:1}
+.chart-fill{height:8px;border-radius:3px;transition:width 1s ease}
+.chart-pct{font-size:10px;color:#444;width:36px}
+/* Domain selector */
+.domain-wrap{padding:0 24px 8px;display:flex;align-items:center;gap:8px}
+.domain-label{font-size:11px;color:#444;flex-shrink:0}
+.domain-select{background:#0e0e18;border:1px solid #1a1a2e;color:#d0d0d8;font-size:11px;padding:4px 8px;border-radius:6px;font-family:inherit;cursor:pointer;flex:1;max-width:220px}
+.domain-select:focus{outline:none;border-color:#2a4a2a}
 /* Agent log panel toggle */
 .log-toggle{padding:8px 16px;font-size:10px;color:#222;cursor:pointer;text-align:center;border-top:1px solid #0e0e18;text-transform:uppercase;letter-spacing:1px}
 .log-toggle:hover{color:#444}
@@ -386,9 +406,18 @@ html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system
     <div class="stat-row"><span class="stat-label">Resolved</span><span class="stat-val amber" id="s-res">0</span></div>
     <div class="stat-row"><span class="stat-label">Model ver.</span><span class="stat-val purple" id="s-ver">v1</span></div>
   </div>
-  <div class="acc-bar-wrap">
-    <div class="acc-bar-label"><span>Accuracy</span><strong id="s-acc2">0%</strong></div>
-    <div class="acc-track"><div class="acc-fill" id="acc-bar" style="width:0%"></div></div>
+  <div class="chart-wrap">
+    <div class="chart-title">Training progress</div>
+    <div class="chart-row">
+      <span class="chart-label">Baseline</span>
+      <div class="chart-track"><div class="chart-fill" id="chart-v1" style="width:0%;background:#444"></div></div>
+      <span class="chart-pct" id="chart-v1-pct">—</span>
+    </div>
+    <div class="chart-row">
+      <span class="chart-label">Now</span>
+      <div class="chart-track"><div class="chart-fill" id="chart-now" style="width:0%;background:linear-gradient(90deg,#4ecdc4,#7fffd4)"></div></div>
+      <span class="chart-pct" id="chart-now-pct">0%</span>
+    </div>
   </div>
   <div class="log-toggle" onclick="toggleLog()">▸ agent log</div>
   <div class="log-mini" id="log-mini"></div>
@@ -398,8 +427,8 @@ html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system
 <div class="main">
   <div class="chat-header">
     <div>
-      <div class="title">Compliance Training Chat</div>
-      <div class="hint">Type a scenario. Canopy verifies it against Banyan Sapling and learns from your corrections.</div>
+      <div class="title" id="chat-title">Compliance Training Chat</div>
+      <div class="hint">Type a scenario. Canopy verifies it against Banyan Sapling and trains Mubit from your corrections.</div>
     </div>
   </div>
   <div class="messages" id="messages">
@@ -415,6 +444,14 @@ html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system
     </div>
   </div>
   <div class="input-area">
+    <div class="domain-wrap">
+      <span class="domain-label">Domain:</span>
+      <select class="domain-select" id="domain-select" onchange="updateDomain()">
+        <option value="compliance">Regulatory Compliance</option>
+        <option value="contract">Contract Review</option>
+        <option value="risk">Risk Assessment</option>
+      </select>
+    </div>
     <div class="input-box">
       <textarea id="user-input" placeholder="Describe a compliance scenario... (e.g. Our company sent marketing emails to 8,000 users without consent. Is this GDPR compliant?)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()">&#9650;</button>
@@ -426,6 +463,25 @@ html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system
 </div>
 <script>
 var currentVerdict = null, currentPolicy = '', currentEvidence = '', currentClaim = '';
+var currentDomain = 'compliance';
+
+var domainPlaceholders = {
+  compliance: 'Describe a compliance scenario... (e.g. Our company sent marketing emails to 8,000 users without consent. Is this GDPR compliant?)',
+  contract:   'Describe a contract situation... (e.g. Supplier delivered 3 weeks late. Our contract requires delivery within 14 days. Are they in breach?)',
+  risk:       'Describe a risk scenario... (e.g. Our VaR model shows 4.2% daily loss exposure. Our risk limit is 3%. Is this within acceptable bounds?)',
+};
+
+var domainTitles = {
+  compliance: 'Compliance Training Chat',
+  contract:   'Contract Review Training Chat',
+  risk:       'Risk Assessment Training Chat',
+};
+
+function updateDomain() {
+  currentDomain = document.getElementById('domain-select').value;
+  document.getElementById('user-input').placeholder = domainPlaceholders[currentDomain] || domainPlaceholders.compliance;
+  document.getElementById('chat-title').textContent = domainTitles[currentDomain] || 'Training Chat';
+}
 
 function autoResize(el) {
   el.style.height = 'auto';
@@ -482,23 +538,28 @@ function advanceStep(idx) {
 }
 
 function showVerdict(bubble, data) {
-  var conf = Math.max(data.sup || 0, data.vio || 0, data.ins || 0);
+  if (data.error) {
+    bubble.innerHTML = '<span style="color:#ffb347">Could not parse scenario: ' + esc(data.error) + '. Try describing the policy, evidence, and claim more explicitly.</span>';
+    scrollBottom();
+    return;
+  }
+  var verdict = data.verdict || 'UNSURE';
   var html = '<div class="verdict-card">';
-  html += '<div class="verdict-badge ' + esc(data.verdict) + '">' + esc(data.verdict) + '</div>';
+  html += '<div class="verdict-badge ' + esc(verdict) + '">' + esc(verdict) + '</div>';
   html += '<div class="conf-label">Confidence breakdown</div>';
   html += '<div class="prob-bars">';
   html += probRow('SUP', data.sup || 0, '#7fffd4');
   html += probRow('VIO', data.vio || 0, '#ff6b6b');
   html += probRow('INS', data.ins || 0, '#ffb347');
   html += '</div>';
-  html += '<div style="font-size:11px;color:#444;margin-bottom:6px">' + esc(data.ms) + 'ms · Banyan Sapling</div>';
+  html += '<div style="font-size:11px;color:#444;margin-bottom:6px">' + esc(data.ms || 0) + 'ms · Banyan Sapling · ' + esc(currentDomain) + '</div>';
   if (data.correction_status) {
-    html += '<div class="correction-sent">record_outcome() → ' + esc(data.correction_status) + '</div>';
+    html += '<div class="correction-sent">Mubit record_outcome() → ' + esc(data.correction_status) + '</div>';
   }
   html += '<div class="correction-row">';
-  html += '<span style="font-size:11px;color:#333;align-self:center">Was this correct?</span>';
-  html += '<button class="btn-corr green" onclick="correct(\'SUPPORTED\')">✓ Should be SUPPORTED</button>';
-  html += '<button class="btn-corr" onclick="correct(\'VIOLATES\')">✗ Should be VIOLATES</button>';
+  html += '<span style="font-size:11px;color:#555;align-self:center">Train Mubit:</span>';
+  html += '<button class="btn-corr green" onclick="correct(\'SUPPORTED\')">Train: Mark SUPPORTED</button>';
+  html += '<button class="btn-corr" onclick="correct(\'VIOLATES\')">Train: Mark VIOLATES</button>';
   html += '</div>';
   html += '</div>';
   bubble.innerHTML = html;
@@ -530,7 +591,7 @@ function sendMessage() {
   fetch('/check', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({policy: text, evidence: '', claim: ''})
+    body: JSON.stringify({policy: text, evidence: '', claim: '', domain: currentDomain})
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
@@ -574,13 +635,19 @@ function pollState() {
   .then(function(r) { return r.json(); })
   .then(function(d) {
     document.getElementById('s-acc').textContent = d.accuracy + '%';
-    document.getElementById('s-acc2').textContent = d.accuracy + '%';
     document.getElementById('s-total').textContent = d.total;
     document.getElementById('s-corr').textContent = d.corrections;
     document.getElementById('s-ins').textContent = d.insufficient;
     document.getElementById('s-res').textContent = d.resolved;
     document.getElementById('s-ver').textContent = 'v' + d.version;
-    document.getElementById('acc-bar').style.width = d.accuracy + '%';
+    // Training chart
+    var nowPct = d.accuracy || 0;
+    document.getElementById('chart-now').style.width = nowPct + '%';
+    document.getElementById('chart-now-pct').textContent = nowPct + '%';
+    if (d.v1_accuracy !== null && d.v1_accuracy !== undefined) {
+      document.getElementById('chart-v1').style.width = d.v1_accuracy + '%';
+      document.getElementById('chart-v1-pct').textContent = d.v1_accuracy + '%';
+    }
     var ls = document.getElementById('live-status');
     if (d.api_status === 'live') {
       ls.textContent = 'LIVE — Banyan Sapling · ' + d.last_timing_ms + 'ms';
@@ -618,6 +685,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/state":
             self._json({
                 "accuracy":       state["accuracy"],
+                "v1_accuracy":    state["v1_accuracy"],
                 "total":          state["total"],
                 "corrections":    state["corrections"],
                 "insufficient":   state["insufficient"],
@@ -650,8 +718,9 @@ class Handler(BaseHTTPRequestHandler):
         policy   = str(body.get("policy",   "")).strip()
         evidence = str(body.get("evidence", "")).strip()
         claim    = str(body.get("claim",    "")).strip()
+        domain   = str(body.get("domain",   "compliance")).strip()
         if policy and (not evidence or not claim):
-            parsed = parse_with_mubit(policy)
+            parsed = parse_with_mubit(policy, domain)
             if parsed:
                 policy   = str(parsed.get("policy",   policy))
                 evidence = str(parsed.get("evidence", evidence))
