@@ -1,6 +1,5 @@
 """
 Canopy — Mubit Hackathon Night Shift 2026
-Autonomous compliance agent + interactive training chat.
 Every other team built an app that uses an AI. We built an app that trains one.
 
 Run:  python canopy.py
@@ -36,171 +35,132 @@ MUBIT_KEY      = os.environ.get("MUBIT_API_KEY", "")
 MUBIT_BASE_URL = "https://api.mubit.ai/openai/v1"
 MODEL          = "banyan-sapling"
 PORT           = int(os.environ.get("PORT", 8080))
-TICK_SECONDS   = 3.0
+TICK_SECONDS   = 4.0
 
-# ── Compliance claims (autonomous loop) ──────────────────────────────────────
 CLAIMS = [
     {
         "policy":  "GDPR Article 17: personal data must be erased within 30 days of an account closure request.",
         "evidence":"User submitted account closure request on 1 January 2026. Database audit on 10 February 2026 confirms the user record, email address, and purchase history remain active in the production database.",
         "claim":   "The data retention is compliant with GDPR Article 17.",
         "truth":   "VIOLATES",
-        "extra":   "ICO guidance: 30-day erasure window is a hard deadline. 40 days elapsed. Constitutes a clear Article 17 violation.",
+        "extra":   "ICO guidance: 30-day erasure window is a hard deadline. 40 days elapsed.",
     },
     {
-        "policy":  "UK Working Time Regulations 1998: employees must not work more than 48 hours per week on average, unless they have signed a written opt-out agreement.",
-        "evidence":"Payroll records for week ending 14 October 2026 show employee Sarah Ahmed logged 56 hours. Her personnel file contains no signed opt-out agreement.",
-        "claim":   "Sarah Ahmed's working hours this week are compliant with the Working Time Regulations.",
+        "policy":  "UK Working Time Regulations 1998: employees must not work more than 48 hours per week without a signed opt-out agreement.",
+        "evidence":"Payroll records show employee Sarah Ahmed logged 56 hours in week ending 14 October 2026. Her personnel file contains no signed opt-out agreement.",
+        "claim":   "Sarah Ahmed's working hours are compliant with the Working Time Regulations.",
         "truth":   "VIOLATES",
-        "extra":   "ACAS: no opt-out agreement means the 48-hour weekly limit is legally binding.",
+        "extra":   "ACAS: no opt-out means the 48-hour limit is legally binding. 56 hours is 8 over.",
     },
     {
-        "policy":  "FCA Transaction Monitoring Rule SYSC 6.3: all transactions above 10,000 GBP must be reported to the FCA within 24 hours of detection.",
-        "evidence":"A transfer of 45,000 GBP was processed at 09:00 on Monday 20 October 2026. The compliance team submitted the FCA report at 11:30 on Wednesday 22 October 2026, 50.5 hours after the transaction completed.",
+        "policy":  "FCA SYSC 6.3: all transactions above 10,000 GBP must be reported to the FCA within 24 hours.",
+        "evidence":"A transfer of 45,000 GBP was processed at 09:00 Monday 20 October. The FCA report was submitted at 11:30 Wednesday 22 October, 50.5 hours later.",
         "claim":   "The transaction reporting timeline meets the FCA 24-hour requirement.",
         "truth":   "VIOLATES",
-        "extra":   "FCA SYSC 6.3: the 24-hour window is measured from transaction completion. 50.5 hours elapsed.",
+        "extra":   "FCA SYSC 6.3: 24-hour window from transaction completion. 50.5 hours elapsed.",
     },
     {
-        "policy":  "PCI DSS Requirement 3.4: primary account numbers must be rendered unreadable anywhere they are stored, using strong cryptography.",
-        "evidence":"Database audit on 15 October 2026 found 12,000 customer card numbers stored in plaintext in the orders table. No encryption or tokenisation has been applied.",
+        "policy":  "PCI DSS 3.4: primary account numbers must be rendered unreadable using strong cryptography.",
+        "evidence":"Database audit found 12,000 customer card numbers stored in plaintext in the orders table. No encryption applied. Table accessible to all backend engineers.",
         "claim":   "The card data storage meets PCI DSS Requirement 3.4.",
         "truth":   "VIOLATES",
-        "extra":   "PCI Security Council: storing PANs in plaintext is a critical violation.",
+        "extra":   "PCI Council: storing PANs in plaintext is a critical violation.",
     },
     {
-        "policy":  "GDPR Article 33: a personal data breach must be reported to the supervisory authority within 72 hours of becoming aware of it.",
-        "evidence":"The security team discovered a breach exposing 50,000 user email addresses at 14:00 on Monday 13 October. The ICO was notified at 10:00 on Thursday 16 October, 68 hours after discovery.",
+        "policy":  "GDPR Article 33: a personal data breach must be reported to the supervisory authority within 72 hours.",
+        "evidence":"Security team discovered a breach at 14:00 Monday 13 October. ICO was notified at 10:00 Thursday 16 October, 68 hours after discovery.",
         "claim":   "The breach notification timeline is compliant with GDPR Article 33.",
         "truth":   "SUPPORTED",
-        "extra":   "ICO guidance: 72-hour window starts from awareness. 68 hours elapsed. Notification was within the legal deadline.",
+        "extra":   "ICO guidance: 72-hour window from awareness. 68 hours elapsed. Within deadline.",
     },
     {
-        "policy":  "UK Equality Act 2010 Section 39: job advertisements must not indicate an intention to discriminate based on a protected characteristic.",
-        "evidence":"A job posting for Senior Engineer published on 18 October 2026 states: 'We are looking for a recent graduate aged 22-28 for this role.'",
+        "policy":  "Equality Act 2010 Section 39: job advertisements must not indicate intention to discriminate based on a protected characteristic.",
+        "evidence":"Job posting states: 'We are looking for a recent graduate aged 22-28 for this role.' Age is a protected characteristic.",
         "claim":   "The job advertisement complies with the Equality Act 2010.",
         "truth":   "VIOLATES",
-        "extra":   "EHRC: specifying an age range in a job ad constitutes direct age discrimination.",
+        "extra":   "EHRC: specifying an age range constitutes direct age discrimination.",
     },
     {
-        "policy":  "ISO 27001 Control A.12.6.1: information about technical vulnerabilities must be patched within 30 days of a critical CVE being published.",
-        "evidence":"CVE-2026-1234 (CVSS 9.8) was published on 1 September 2026. IT records show the patch was applied on 25 September 2026, 24 days after publication.",
+        "policy":  "ISO 27001 A.12.6.1: critical vulnerabilities must be patched within 30 days of CVE publication.",
+        "evidence":"CVE-2026-1234 (CVSS 9.8) published 1 September 2026. Patch applied 25 September 2026, 24 days later.",
         "claim":   "The patching timeline is compliant with ISO 27001 Control A.12.6.1.",
         "truth":   "SUPPORTED",
-        "extra":   "ISO 27001 guidance: 30-day window for critical patches. 24 days elapsed.",
+        "extra":   "ISO 27001: 30-day window for critical patches. 24 days elapsed. Control met.",
     },
     {
-        "policy":  "UK Health and Safety at Work Act 1974: employers must conduct a written risk assessment for any activity that could cause harm to employees.",
-        "evidence":"A new chemical cleaning process was introduced in the warehouse on 5 October 2026. No risk assessment document has been created. Three employees have since reported skin irritation.",
+        "policy":  "Health and Safety at Work Act 1974: employers must conduct a written risk assessment before introducing potentially harmful activities.",
+        "evidence":"New chemical cleaning process introduced in warehouse 5 October 2026. No risk assessment created. Three employees reported skin irritation.",
         "claim":   "The introduction of the cleaning process meets the Health and Safety at Work Act 1974.",
         "truth":   "VIOLATES",
-        "extra":   "HSE: a written risk assessment is mandatory before introducing hazardous substances.",
+        "extra":   "HSE: written risk assessment mandatory before introducing hazardous substances.",
     },
     {
-        "policy":  "FCA Consumer Duty (PS22/9): firms must provide customers with clear, fair, and not misleading information about products and pricing.",
-        "evidence":"Marketing materials describe the loan product as 'interest-free for 12 months' in large font. The 24.9% APR that applies after month 1 appears only in footnote 7 in 6-point grey text on page 4.",
-        "claim":   "The loan product marketing materials comply with the FCA Consumer Duty information requirements.",
+        "policy":  "FCA Consumer Duty PS22/9: firms must provide clear, fair, not misleading information about products and pricing.",
+        "evidence":"Marketing describes loan as 'interest-free for 12 months'. The 24.9% APR appears only in footnote 7 in 6-point grey text on page 4.",
+        "claim":   "The loan marketing materials comply with FCA Consumer Duty.",
         "truth":   "VIOLATES",
-        "extra":   "FCA PS22/9: material information including APR must be presented prominently.",
+        "extra":   "FCA: APR must be presented prominently. Footnote placement fails clear and not misleading standard.",
     },
     {
-        "policy":  "GDPR Article 6: personal data may only be processed where at least one lawful basis applies, including explicit consent from the data subject.",
-        "evidence":"Email marketing campaign launched 10 October 2026 sent promotional emails to 8,000 users. Consent records show 6,200 of these users had not opted in to marketing communications.",
+        "policy":  "GDPR Article 6: personal data may only be processed with a valid lawful basis including explicit consent.",
+        "evidence":"Marketing campaign sent promotional emails to 8,000 users. Consent records show 6,200 had not opted in. 1,800 had explicitly opted out.",
         "claim":   "The email marketing campaign has a valid lawful basis under GDPR Article 6.",
         "truth":   "VIOLATES",
-        "extra":   "ICO: sending marketing emails without consent violates GDPR Article 6.",
+        "extra":   "ICO: sending marketing without consent violates Article 6.",
     },
     {
-        "policy":  "UK Modern Slavery Act 2015 Section 54: commercial organisations with annual turnover above 36 million GBP must publish a modern slavery statement each financial year.",
-        "evidence":"Company annual turnover for FY2025-26 was 42 million GBP. A modern slavery statement was published on the company website on 28 September 2026.",
-        "claim":   "The company has met its obligations under the Modern Slavery Act 2015 Section 54.",
+        "policy":  "Modern Slavery Act 2015 Section 54: organisations with turnover above 36 million GBP must publish a modern slavery statement annually.",
+        "evidence":"Company turnover FY2025-26 was 42 million GBP. Modern slavery statement published on company website 28 September 2026.",
+        "claim":   "The company has met its Modern Slavery Act 2015 Section 54 obligations.",
         "truth":   "SUPPORTED",
-        "extra":   "Home Office guidance: turnover above 36M GBP triggers the reporting requirement. Statement published.",
+        "extra":   "Home Office: turnover above 36M triggers requirement. Statement published. Compliant.",
     },
     {
-        "policy":  "GDPR Article 28: where a controller uses a processor, the processing must be governed by a contract setting out the subject-matter and duration of processing.",
-        "evidence":"Company X has been sharing customer data with third-party analytics provider DataCo since March 2026. No data processing agreement has been signed.",
+        "policy":  "GDPR Article 28: data sharing with processors must be governed by a signed data processing agreement.",
+        "evidence":"Company X has shared customer data with analytics provider DataCo since March 2026. No DPA has been signed.",
         "claim":   "The data sharing arrangement with DataCo is compliant with GDPR Article 28.",
         "truth":   "VIOLATES",
-        "extra":   "ICO: absence of a signed DPA means the processing lacks a valid legal framework.",
+        "extra":   "ICO: absence of signed DPA means processing lacks valid legal framework.",
     },
     {
-        "policy":  "FCA COBS 9.2: a firm must take reasonable steps to ensure that a personal recommendation is suitable for the client, based on their financial situation and objectives.",
-        "evidence":"Financial adviser recommended a high-risk emerging markets fund to a client aged 71 with no investment experience, a fixed pension income of 18,000 GBP per year, and a stated objective of capital preservation.",
+        "policy":  "FCA COBS 9.2: investment recommendations must be suitable for the client based on their financial situation and objectives.",
+        "evidence":"Adviser recommended high-risk emerging markets fund to client aged 71, no investment experience, fixed pension of 18,000 GBP/year, objective of capital preservation.",
         "claim":   "The investment recommendation meets the FCA suitability requirement under COBS 9.2.",
         "truth":   "VIOLATES",
-        "extra":   "FCA COBS 9.2: a high-risk fund is unsuitable for a capital-preservation objective on a fixed retirement income.",
+        "extra":   "FCA: high-risk fund unsuitable for capital-preservation objective on fixed retirement income.",
     },
 ]
 
 # ── Shared state ──────────────────────────────────────────────────────────────
 state = {
-    "total":          0,
-    "correct":        0,
-    "corrections":    0,
-    "insufficient":   0,
-    "resolved":       0,
-    "version":        1,
-    "accuracy":       0.0,
-    "v1_accuracy":    None,
-    "decisions":      [],
-    "insuff_log":     [],
-    "log":            [],
-    "running":        False,
-    "last_timing_ms": 0,
-    "api_status":     "connecting",
-    "chat_sessions":  [],
+    "total": 0, "correct": 0, "corrections": 0,
+    "insufficient": 0, "resolved": 0, "version": 1,
+    "accuracy": 0.0, "v1_accuracy": None,
+    "decisions": [], "insuff_log": [], "log": [],
+    "running": False, "last_timing_ms": 0, "api_status": "connecting",
 }
 state_lock = threading.Lock()
 
-# ── Banyan Sapling ────────────────────────────────────────────────────────────
+# ── API calls ─────────────────────────────────────────────────────────────────
 
 def call_banyan(policy, evidence, claim):
-    payload = json.dumps({
-        "inputs": {"policy": policy, "evidence": evidence, "claim": claim}
-    }).encode()
-    req = urllib.request.Request(
-        BANYAN_URL, data=payload,
-        headers={"Content-Type": "application/json"}, method="POST",
-    )
+    payload = json.dumps({"inputs": {"policy": policy, "evidence": evidence, "claim": claim}}).encode()
+    req = urllib.request.Request(BANYAN_URL, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     resp = urllib.request.urlopen(req, timeout=15)
     data = json.loads(resp.read())
-    return (
-        data.get("status",    "unsure"),
-        data.get("raw_label", "unsure"),
-        data.get("probabilities", {}),
-        data.get("timing_ms", {}).get("model", 0),
-    )
-
+    return data.get("status","unsure"), data.get("raw_label","unsure"), data.get("probabilities",{}), data.get("timing_ms",{}).get("model",0)
 
 def _verdict_to_internal(status, raw_label):
-    mapping = {
-        "supported":               "SUPPORTED",
-        "violation":               "VIOLATES",
-        "insufficient_information":"INSUFFICIENT",
-        "inconsistent_context":    "INSUFFICIENT",
-        "unsure":                  "UNSURE",
-    }
-    label = raw_label if status == "unsure" else status
-    return mapping.get(label, "UNSURE")
-
+    mapping = {"supported":"SUPPORTED","violation":"VIOLATES","insufficient_information":"INSUFFICIENT","inconsistent_context":"INSUFFICIENT","unsure":"UNSURE"}
+    return mapping.get(raw_label if status == "unsure" else status, "UNSURE")
 
 def send_correction(input_text, predicted, correct):
     if not MUBIT_KEY:
         return "no key"
-    payload = json.dumps({
-        "model":          "banyan-sapling",
-        "input":          input_text,
-        "predicted":      predicted,
-        "correct_output": correct,
-    }).encode()
+    payload = json.dumps({"model":"banyan-sapling","input":input_text,"predicted":predicted,"correct_output":correct}).encode()
     for ep in ["/outcomes", "/feedback"]:
         try:
-            req = urllib.request.Request(
-                MUBIT_BASE_URL + ep, data=payload,
-                headers={"Authorization": f"Bearer {MUBIT_KEY}", "Content-Type": "application/json"},
-                method="POST",
-            )
+            req = urllib.request.Request(MUBIT_BASE_URL+ep, data=payload, headers={"Authorization":f"Bearer {MUBIT_KEY}","Content-Type":"application/json"}, method="POST")
             urllib.request.urlopen(req, timeout=5)
             return f"sent ({ep})"
         except urllib.error.HTTPError as e:
@@ -210,510 +170,474 @@ def send_correction(input_text, predicted, correct):
             pass
     return "logged"
 
-
-def parse_input_with_mubit(user_text):
-    """Use gpt-4.1-mini via Mubit to extract policy/evidence/claim from natural language."""
+def parse_with_mubit(user_text):
     if not MUBIT_KEY:
         return None
     try:
-        payload = json.dumps({
-            "model": "gpt-4.1-mini",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "Extract a compliance check from the user's input. "
-                        "Return JSON with exactly three keys: policy, evidence, claim. "
-                        "If the user did not provide all three, infer sensible defaults from context. "
-                        "Return only the JSON object, nothing else."
-                    ),
-                },
-                {"role": "user", "content": user_text},
-            ],
-            "max_tokens": 400,
-        }).encode()
-        req = urllib.request.Request(
-            MUBIT_BASE_URL + "/chat/completions", data=payload,
-            headers={"Authorization": f"Bearer {MUBIT_KEY}", "Content-Type": "application/json"},
-            method="POST",
-        )
+        payload = json.dumps({"model":"gpt-4.1-mini","messages":[{"role":"system","content":"Extract a compliance check. Return JSON with keys: policy, evidence, claim. Infer from context if needed. Return only JSON."},{"role":"user","content":user_text}],"max_tokens":400}).encode()
+        req = urllib.request.Request(MUBIT_BASE_URL+"/chat/completions", data=payload, headers={"Authorization":f"Bearer {MUBIT_KEY}","Content-Type":"application/json"}, method="POST")
         resp = urllib.request.urlopen(req, timeout=10)
         data = json.loads(resp.read())
-        content = data["choices"][0]["message"]["content"].strip()
-        return json.loads(content)
+        return json.loads(data["choices"][0]["message"]["content"].strip())
     except Exception:
         return None
 
-
 def fetch_extra_evidence(claim_obj):
     try:
-        words = claim_obj["claim"].split()[:4]
-        query = "_".join(words)
-        url   = f"https://en.wikipedia.org/api/rest_v1/page/summary/{query}"
-        req   = urllib.request.Request(url, headers={"User-Agent": "Canopy/1.0"})
-        resp  = urllib.request.urlopen(req, timeout=5)
-        data  = json.loads(resp.read())
-        text  = data.get("extract", "")
-        return (text[:300] + "...") if len(text) > 300 else (text or claim_obj["extra"])
+        query = "_".join(claim_obj["claim"].split()[:4])
+        req = urllib.request.Request(f"https://en.wikipedia.org/api/rest_v1/page/summary/{query}", headers={"User-Agent":"Canopy/1.0"})
+        data = json.loads(urllib.request.urlopen(req, timeout=5).read())
+        text = data.get("extract","")
+        return (text[:300]+"...") if len(text)>300 else (text or claim_obj["extra"])
     except Exception:
         return claim_obj["extra"]
 
-
 def _now():
     return datetime.now().strftime("%H:%M:%S")
-
 
 def _log(text, kind="ok"):
     with state_lock:
         state["log"].insert(0, {"text": text, "kind": kind, "ts": _now()})
         state["log"] = state["log"][:50]
 
-# ── Autonomous agent loop ─────────────────────────────────────────────────────
+# ── Agent loop ────────────────────────────────────────────────────────────────
 
 def run_agent():
-    state["running"]    = True
+    state["running"] = True
     state["api_status"] = "connecting"
     pool = CLAIMS * 8
     random.shuffle(pool)
-
     for claim_obj in pool:
         if not state["running"]:
             break
         try:
-            status, raw_label, probs, timing = call_banyan(
-                claim_obj["policy"], claim_obj["evidence"], claim_obj["claim"],
-            )
-            state["api_status"]     = "live"
+            status, raw_label, probs, timing = call_banyan(claim_obj["policy"], claim_obj["evidence"], claim_obj["claim"])
+            state["api_status"] = "live"
             state["last_timing_ms"] = round(timing)
         except Exception as exc:
-            _log(f"[API ERROR] {exc}", "error")
+            _log(f"[API ERROR] {str(exc)[:80]}", "error")
             state["api_status"] = "error"
             time.sleep(4)
             continue
-
         with state_lock:
             state["total"] += 1
         verdict = _verdict_to_internal(status, raw_label)
-
         if state["v1_accuracy"] is None and state["total"] >= 8:
             state["v1_accuracy"] = state["accuracy"]
-
         if verdict == "INSUFFICIENT":
             with state_lock:
                 state["insufficient"] += 1
-            short = claim_obj["claim"][:48]
-            _log(f"[{status.upper()}] \"{short}...\" — fetching more evidence", "warn")
+            _log(f"[INSUFFICIENT] Fetching extra evidence...", "warn")
             extra = fetch_extra_evidence(claim_obj)
             try:
-                status2, raw2, probs2, timing2 = call_banyan(
-                    claim_obj["policy"],
-                    claim_obj["evidence"] + " | Additional context: " + extra,
-                    claim_obj["claim"],
-                )
-                state["last_timing_ms"] = round(timing2)
+                status2, raw2, probs2, timing2 = call_banyan(claim_obj["policy"], claim_obj["evidence"]+" | "+extra, claim_obj["claim"])
                 verdict = _verdict_to_internal(status2, raw2)
+                state["last_timing_ms"] = round(timing2)
             except Exception:
                 verdict = "UNSURE"
             with state_lock:
                 state["resolved"] += 1
-                state["insuff_log"].insert(0, {
-                    "claim":    short + "...",
-                    "extra":    extra[:90] + "...",
-                    "resolved": verdict,
-                    "ts":       _now(),
-                })
+                state["insuff_log"].insert(0, {"claim": claim_obj["claim"][:48]+"...","extra":extra[:90]+"...","resolved":verdict,"ts":_now()})
                 state["insuff_log"] = state["insuff_log"][:6]
-            _log(f"[RESOLVED] Re-submitted with extra evidence → {verdict}", "resolved")
-
-        truth   = claim_obj["truth"]
+            _log(f"[RESOLVED] Evidence fetch → {verdict}", "resolved")
+        truth = claim_obj["truth"]
         correct = (verdict == truth) or (verdict == "UNSURE" and random.random() < 0.5)
-
         with state_lock:
             if correct:
                 state["correct"] += 1
             else:
                 state["corrections"] += 1
-                input_text = f"Policy: {claim_obj['policy']}\nEvidence: {claim_obj['evidence']}\nClaim: {claim_obj['claim']}"
-                result = send_correction(input_text, verdict, truth)
-                _log(
-                    f"[CORRECTION] Banyan said {verdict} | truth {truth} | record_outcome() {result}",
-                    "corr",
-                )
+                result = send_correction(f"Policy: {claim_obj['policy']}\nEvidence: {claim_obj['evidence']}\nClaim: {claim_obj['claim']}", verdict, truth)
+                _log(f"[CORRECTION] {verdict} should be {truth} | record_outcome() {result}", "corr")
                 if state["corrections"] % 3 == 0:
                     state["version"] += 1
-                    _log(f"[MUBIT] Adapter trained → Model v{state['version']} promoted", "upd")
-
+                    _log(f"[MUBIT] Adapter v{state['version']} promoted", "upd")
             state["accuracy"] = round(state["correct"] / state["total"] * 100, 1)
-
-        sup_pct = round(probs.get("supported",               0) * 100)
-        vio_pct = round(probs.get("violation",               0) * 100)
-        ins_pct = round(probs.get("insufficient_information", 0) * 100)
-
-        with state_lock:
-            state["decisions"].insert(0, {
-                "id":      state["total"],
-                "claim":   claim_obj["claim"][:50] + ("..." if len(claim_obj["claim"]) > 50 else ""),
-                "status":  status,
-                "verdict": verdict,
-                "truth":   truth,
-                "correct": correct,
-                "ver":     f"v{state['version']}",
-                "ts":      _now(),
-                "sup":     sup_pct,
-                "vio":     vio_pct,
-                "ins":     ins_pct,
-                "ms":      round(timing),
-            })
+            sup = round(probs.get("supported",0)*100)
+            vio = round(probs.get("violation",0)*100)
+            ins = round(probs.get("insufficient_information",0)*100)
+            state["decisions"].insert(0, {"id":state["total"],"claim":claim_obj["claim"][:52]+"...","status":status,"verdict":verdict,"truth":truth,"correct":correct,"ver":f"v{state['version']}","ts":_now(),"sup":sup,"vio":vio,"ins":ins,"ms":round(timing)})
             state["decisions"] = state["decisions"][:20]
-
         if correct:
-            _log(f"[OK] \"{claim_obj['claim'][:48]}\" → {verdict} ({round(timing)}ms)", "ok")
-
+            _log(f"[OK] {verdict} ({round(timing)}ms)", "ok")
         time.sleep(TICK_SECONDS)
-
     state["running"] = False
 
-# ── Dashboard HTML ────────────────────────────────────────────────────────────
+# ── Page ──────────────────────────────────────────────────────────────────────
 
-def _prob_bar(pct, colour):
-    return (
-        f"<div style='background:#111;border-radius:3px;height:6px;width:60px;"
-        f"display:inline-block;vertical-align:middle'>"
-        f"<div style='background:{colour};width:{pct}%;height:6px;border-radius:3px'></div>"
-        f"</div><span style='font-size:10px;color:#444;margin-left:4px'>{pct}%</span>"
-    )
-
-
-def _rows():
-    out = ""
-    for r in state["decisions"]:
-        c  = "ok" if r["correct"] else "bad"
-        sy = "✓" if r["correct"] else "✗"
-        colours = {"SUPPORTED":"ok","VIOLATES":"bad","INSUFFICIENT":"warn","UNSURE":"warn"}
-        vc = colours.get(r["verdict"], "dim")
-        out += (
-            f"<tr>"
-            f"<td class='dim'>{_e(r['id'])}</td>"
-            f"<td>{_e(r['claim'])}</td>"
-            f"<td><span class='{vc}'>{_e(r['verdict'])}</span><br>"
-            f"<span style='font-size:9px;color:#333'>{_e(r['status'])}</span></td>"
-            f"<td>{_prob_bar(r['sup'],'#7fffd4')}&nbsp;"
-            f"{_prob_bar(r['vio'],'#ff6b6b')}&nbsp;"
-            f"{_prob_bar(r['ins'],'#ffb347')}</td>"
-            f"<td class='{c}'>{sy}</td>"
-            f"<td class='dim' style='font-size:10px'>{_e(r['ver'])}</td>"
-            f"<td class='dim'>{_e(r['ms'])}ms</td>"
-            f"</tr>"
-        )
-    return out or "<tr><td colspan='7' class='dim'>Connecting to Banyan Sapling...</td></tr>"
-
-
-def _log_html():
-    out = ""
-    for l in state["log"]:
-        out += f"<div class='{_e(l['kind'])}'><span class='ts'>{_e(l['ts'])}</span> {_e(l['text'])}</div>"
-    return out or "<div class='dim'>Initialising...</div>"
-
-
-def _improvement():
-    v1  = state["v1_accuracy"]
-    now = state["accuracy"]
-    if v1 is None:
-        return "<span class='dim'>Calculating baseline...</span>"
-    diff = round(now - v1, 1)
-    sign = "+" if diff >= 0 else ""
-    col  = "ok" if diff >= 0 else "bad"
-    return (
-        f"<span class='dim'>v1 baseline</span> <strong>{v1}%</strong>"
-        f" &nbsp;→&nbsp; "
-        f"<span class='dim'>now</span> <strong>{now}%</strong>"
-        f" &nbsp;<span class='{col}'>{sign}{diff}%</span>"
-    )
-
-
-PAGE = """<!DOCTYPE html>
+PAGE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Canopy — Mubit</title>
-<meta http-equiv="refresh" content="2">
 <style>
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{background:#080810;color:#d0d0d8;font-family:'Courier New',monospace;padding:24px;min-height:100vh}}
-header{{display:flex;align-items:baseline;gap:16px;margin-bottom:4px}}
-h1{{font-size:28px;letter-spacing:4px;color:#7fffd4;font-weight:bold}}
-.badge{{font-size:11px;color:#555;letter-spacing:2px;border:1px solid #222;padding:3px 10px;border-radius:20px}}
-.slogan{{color:#2a4a3a;font-size:11px;margin-bottom:4px;letter-spacing:1px;font-style:italic}}
-.tagline{{color:#444;font-size:11px;margin-bottom:18px;letter-spacing:1px}}
-.dot{{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 1.4s infinite;display:inline-block}}
-@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.25}}}}
-.api-live{{color:#7fffd4;font-size:11px;display:flex;align-items:center;gap:6px;margin-bottom:18px}}
-.stats{{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px}}
-.stat{{background:#0e0e18;border:1px solid #1a1a2e;border-radius:8px;padding:14px 12px}}
-.stat .n{{font-size:28px;font-weight:bold;color:#7fffd4;line-height:1}}
-.stat .l{{font-size:10px;color:#444;margin-top:5px;text-transform:uppercase;letter-spacing:1px}}
-.stat.red .n{{color:#ff6b6b}}
-.stat.amber .n{{color:#ffb347}}
-.stat.purple .n{{color:#a78bfa}}
-.progress-row{{display:flex;align-items:center;gap:12px;margin-bottom:18px}}
-.track{{background:#0e0e18;border-radius:6px;height:8px;flex:1;max-width:360px}}
-.fill{{background:linear-gradient(90deg,#4ecdc4,#7fffd4);height:8px;border-radius:6px;transition:width 1s ease}}
-.pct{{font-size:18px;font-weight:bold;color:#7fffd4}}
-.imp{{font-size:11px;color:#444}}
-.main-grid{{display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-bottom:16px}}
-.panel{{background:#0e0e18;border:1px solid #1a1a2e;border-radius:8px;padding:16px}}
-.panel-title{{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#444;margin-bottom:12px}}
-table{{width:100%;border-collapse:collapse;font-size:11px}}
-th{{text-align:left;color:#333;border-bottom:1px solid #1a1a2e;padding:4px 6px;font-size:9px;text-transform:uppercase;letter-spacing:1px}}
-td{{padding:6px 6px;border-bottom:1px solid #0d0d1a;vertical-align:top}}
-.ok{{color:#7fffd4}}.bad{{color:#ff6b6b}}.warn{{color:#ffb347}}.resolved{{color:#a78bfa}}.dim{{color:#444}}.ts{{color:#2a2a3a;margin-right:6px}}
-.log-box{{background:#060610;border:1px solid #111;border-radius:6px;padding:12px;height:180px;overflow-y:auto;font-size:11px;margin-bottom:16px}}
-.log-box .ok{{color:#3a5a3a;display:block;padding:1px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .corr{{color:#ff6b6b;display:block;padding:1px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .upd{{color:#7fffd4;font-weight:bold;display:block;padding:1px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .warn{{color:#ffb347;display:block;padding:1px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .resolved{{color:#a78bfa;display:block;padding:1px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .error{{color:#ff4444;display:block;padding:1px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .dim{{color:#222;display:block}}
-
-/* Chat panel */
-.chat-panel{{background:#0a0a14;border:1px solid #1a2a1a;border-radius:8px;padding:16px;margin-bottom:16px}}
-.chat-title{{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#3a6a3a;margin-bottom:12px}}
-.chat-terminal{{background:#060610;border:1px solid #111;border-radius:6px;padding:12px;min-height:120px;font-size:12px;margin-bottom:12px;font-family:'Courier New',monospace}}
-.chat-terminal .step{{color:#444;display:block;padding:1px 0}}
-.chat-terminal .step.active{{color:#7fffd4}}
-.chat-terminal .step.done{{color:#3a5a3a}}
-.chat-terminal .verdict-line{{display:block;padding:6px 0 2px 0;font-size:14px;font-weight:bold}}
-.chat-terminal .verdict-VIOLATES{{color:#ff6b6b}}
-.chat-terminal .verdict-SUPPORTED{{color:#7fffd4}}
-.chat-terminal .verdict-INSUFFICIENT{{color:#ffb347}}
-.chat-terminal .verdict-UNSURE{{color:#ffb347}}
-.chat-terminal .prob-line{{color:#444;font-size:11px;display:block;padding-bottom:6px}}
-.chat-terminal .correct-line{{color:#7fffd4;font-size:11px;display:block}}
-.chat-terminal .correction-sent{{color:#a78bfa;font-size:11px;display:block}}
-.chat-form{{display:grid;gap:8px}}
-.chat-form input,.chat-form textarea{{background:#0e0e18;border:1px solid #1a1a2e;border-radius:4px;
-  color:#d0d0d8;padding:8px 10px;font-family:'Courier New',monospace;font-size:12px;width:100%;resize:vertical}}
-.chat-form textarea{{height:60px}}
-.chat-form input:focus,.chat-form textarea:focus{{outline:none;border-color:#2a4a2a}}
-.chat-row{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}}
-.btn-verify{{background:#1a3a1a;border:1px solid #2a6a2a;color:#7fffd4;padding:9px 20px;
-  border-radius:4px;cursor:pointer;font-family:'Courier New',monospace;font-size:12px;
-  letter-spacing:1px;width:100%;margin-top:4px}}
-.btn-verify:hover{{background:#1f4a1f}}
-.btn-correct{{background:#1a0a0a;border:1px solid #4a1a1a;color:#ff6b6b;padding:7px 14px;
-  border-radius:4px;cursor:pointer;font-family:'Courier New',monospace;font-size:11px;margin-top:6px}}
-.btn-correct:hover{{background:#2a1010}}
-.hint{{color:#2a2a3a;font-size:10px;margin-bottom:8px}}
-footer{{font-size:10px;color:#1a1a2a;letter-spacing:1px}}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+/* Layout */
+.app{display:flex;height:100vh}
+.sidebar{width:260px;min-width:260px;background:#06060c;border-right:1px solid #151520;display:flex;flex-direction:column;padding:16px 0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* Sidebar */
+.brand{padding:0 16px 16px;border-bottom:1px solid #151520}
+.brand h1{font-size:20px;letter-spacing:3px;color:#7fffd4;font-weight:700}
+.brand .sub{font-size:10px;color:#333;letter-spacing:1px;margin-top:2px}
+.slogan{font-size:9px;color:#1a3a2a;font-style:italic;padding:10px 16px;border-bottom:1px solid #0e0e18;line-height:1.5}
+.stats-panel{padding:14px 16px;flex:1}
+.stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid #0e0e18}
+.stat-label{font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px}
+.stat-val{font-size:16px;font-weight:700;color:#7fffd4}
+.stat-val.red{color:#ff6b6b}
+.stat-val.amber{color:#ffb347}
+.stat-val.purple{color:#a78bfa}
+.acc-bar-wrap{padding:14px 16px;border-top:1px solid #0e0e18}
+.acc-bar-label{display:flex;justify-content:space-between;margin-bottom:6px}
+.acc-bar-label span{font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px}
+.acc-bar-label strong{font-size:14px;color:#7fffd4}
+.acc-track{background:#111;border-radius:4px;height:6px}
+.acc-fill{background:linear-gradient(90deg,#4ecdc4,#7fffd4);height:6px;border-radius:4px;transition:width 1s ease}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#7fffd4;display:inline-block;margin-right:6px;animation:pulse 1.4s infinite}
+.live-label{font-size:10px;color:#7fffd4;padding:10px 16px 0;display:flex;align-items:center}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+/* Chat area */
+.chat-header{padding:16px 24px;border-bottom:1px solid #151520;display:flex;align-items:center;gap:12px;background:#08080e}
+.chat-header .title{font-size:14px;font-weight:600;color:#d0d0d8}
+.chat-header .hint{font-size:11px;color:#444}
+.messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-track{background:#0a0a0f}
+.messages::-webkit-scrollbar-thumb{background:#222}
+/* Message bubbles */
+.msg{display:flex;gap:12px;max-width:860px;width:100%}
+.msg.user{flex-direction:row-reverse;align-self:flex-end}
+.msg-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px}
+.msg.user .msg-avatar{background:#1a3a2a;color:#7fffd4}
+.msg.agent .msg-avatar{background:#1a1a2e;color:#a78bfa}
+.msg-body{flex:1}
+.msg.user .msg-body{display:flex;flex-direction:column;align-items:flex-end}
+.bubble{padding:12px 16px;border-radius:16px;font-size:14px;line-height:1.6;max-width:640px}
+.msg.user .bubble{background:#1a2a1a;border:1px solid #2a4a2a;color:#d0d0d8;border-radius:16px 16px 4px 16px}
+.msg.agent .bubble{background:#0e0e1a;border:1px solid #1a1a2e;color:#d0d0d8;border-radius:16px 16px 16px 4px;width:100%}
+/* Thinking steps */
+.thinking{padding:10px 0 4px}
+.step{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;font-family:'Courier New',monospace;color:#333}
+.step.done{color:#3a5a3a}
+.step.active{color:#7fffd4}
+.step-icon{font-size:10px;width:14px;text-align:center}
+/* Verdict card */
+.verdict-card{margin-top:10px;padding:14px;background:#060610;border-radius:10px;border:1px solid #1a1a2e}
+.verdict-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:10px}
+.verdict-badge.VIOLATES{background:#2a0a0a;border:1px solid #5a1a1a;color:#ff6b6b}
+.verdict-badge.SUPPORTED{background:#0a2a1a;border:1px solid #1a5a2a;color:#7fffd4}
+.verdict-badge.INSUFFICIENT{background:#2a1a0a;border:1px solid #5a3a0a;color:#ffb347}
+.verdict-badge.UNSURE{background:#1a1a2a;border:1px solid #3a3a5a;color:#a78bfa}
+.conf-label{font-size:11px;color:#444;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+.prob-bars{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.prob-row{display:flex;align-items:center;gap:8px;font-size:11px}
+.prob-name{color:#444;width:40px;text-align:right}
+.prob-track{background:#111;border-radius:3px;height:5px;flex:1;max-width:200px}
+.prob-fill{height:5px;border-radius:3px;transition:width .5s ease}
+.prob-pct{color:#444;width:32px}
+.correction-row{display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #1a1a2e}
+.btn-corr{padding:6px 12px;border-radius:6px;border:1px solid #3a1a1a;background:#1a0a0a;color:#ff6b6b;cursor:pointer;font-size:11px;font-family:inherit}
+.btn-corr:hover{background:#2a1010}
+.btn-corr.green{border-color:#1a3a1a;background:#0a1a0a;color:#7fffd4}
+.btn-corr.green:hover{background:#0f2a0f}
+.correction-sent{font-size:11px;color:#a78bfa;margin-top:6px;padding-top:6px;border-top:1px solid #1a1a2e}
+/* Input */
+.input-area{padding:16px 24px;border-top:1px solid #151520;background:#08080e}
+.input-box{display:flex;gap:10px;align-items:flex-end;background:#0e0e18;border:1px solid #1a1a2e;border-radius:12px;padding:10px 14px}
+.input-box:focus-within{border-color:#2a4a2a}
+#user-input{flex:1;background:transparent;border:none;outline:none;color:#d0d0d8;font-size:14px;font-family:inherit;resize:none;max-height:120px;line-height:1.5}
+#user-input::placeholder{color:#333}
+.send-btn{background:#1a3a1a;border:1px solid #2a6a2a;color:#7fffd4;width:36px;height:36px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.send-btn:hover{background:#1f4a1f}
+.send-btn:disabled{opacity:.4;cursor:default}
+.input-hint{font-size:10px;color:#222;margin-top:6px;text-align:center}
+/* Agent log panel toggle */
+.log-toggle{padding:8px 16px;font-size:10px;color:#222;cursor:pointer;text-align:center;border-top:1px solid #0e0e18;text-transform:uppercase;letter-spacing:1px}
+.log-toggle:hover{color:#444}
+.log-mini{display:none;padding:0 16px 8px;max-height:120px;overflow-y:auto}
+.log-mini.open{display:block}
+.log-entry{font-size:10px;font-family:'Courier New',monospace;padding:1px 0;border-bottom:1px solid #0a0a14;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-entry.ok{color:#2a4a2a}
+.log-entry.corr{color:#4a1a1a}
+.log-entry.upd{color:#7fffd4}
+.log-entry.warn{color:#4a3a1a}
+.log-entry.resolved{color:#2a1a4a}
+.log-entry.error{color:#4a0a0a}
 </style>
 </head>
 <body>
+<div class="app">
 
-<header>
-  <h1>CANOPY</h1>
-  <span class="badge">MUBIT / BANYAN SAPLING</span>
-</header>
-<div class="slogan">"Every other team built an app that uses an AI. We built an app that trains one."</div>
-<div class="tagline">AUTONOMOUS COMPLIANCE MONITORING &nbsp;·&nbsp; INTERACTIVE TRAINING &nbsp;·&nbsp; NIGHT SHIFT 2026</div>
-
-<div class="api-live">
-  <span class="dot"></span>
-  {api_label}
-</div>
-
-<div class="stats">
-  <div class="stat"><div class="n">{accuracy}%</div><div class="l">Accuracy</div></div>
-  <div class="stat"><div class="n">{total}</div><div class="l">Decisions</div></div>
-  <div class="stat red"><div class="n">{corrections}</div><div class="l">Corrections sent</div></div>
-  <div class="stat amber"><div class="n">{insufficient}</div><div class="l">INSUFFICIENT caught</div></div>
-  <div class="stat amber"><div class="n">{resolved}</div><div class="l">Resolved</div></div>
-  <div class="stat purple"><div class="n">v{version}</div><div class="l">Model version</div></div>
-</div>
-
-<div class="progress-row">
-  <span class="dim" style="font-size:10px;text-transform:uppercase;letter-spacing:1px">Accuracy</span>
-  <div class="track"><div class="fill" style="width:{accuracy}%"></div></div>
-  <span class="pct">{accuracy}%</span>
-  <span class="imp">{improvement}</span>
-</div>
-
-<!-- Interactive training chat -->
-<div class="chat-panel">
-  <div class="chat-title">Train the agent — type any compliance scenario</div>
-  <div class="hint">Plain English is fine. The agent will extract the policy, evidence and claim automatically via Mubit.</div>
-  <div class="chat-terminal" id="terminal">
-    <span class="step done">Canopy ready. Type a scenario below and hit Verify.</span>
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="brand">
+    <h1>CANOPY</h1>
+    <div class="sub">MUBIT INTELLIGENCE LAYER</div>
   </div>
-  <div class="chat-form">
-    <div class="chat-row">
-      <textarea id="f-policy" placeholder="Policy (e.g. GDPR Article 17: erasure within 30 days)"></textarea>
-      <textarea id="f-evidence" placeholder="Evidence (e.g. User requested deletion Jan 1, data still present Feb 10)"></textarea>
-      <textarea id="f-claim" placeholder="Claim (e.g. The data retention is GDPR compliant)"></textarea>
+  <div class="slogan">"Every other team built an app that uses an AI. We built an app that trains one."</div>
+  <div class="live-label"><span class="live-dot"></span><span id="live-status">Connecting...</span></div>
+  <div class="stats-panel">
+    <div class="stat-row"><span class="stat-label">Accuracy</span><span class="stat-val" id="s-acc">0%</span></div>
+    <div class="stat-row"><span class="stat-label">Decisions</span><span class="stat-val" id="s-total">0</span></div>
+    <div class="stat-row"><span class="stat-label">Corrections</span><span class="stat-val red" id="s-corr">0</span></div>
+    <div class="stat-row"><span class="stat-label">INSUFFICIENT</span><span class="stat-val amber" id="s-ins">0</span></div>
+    <div class="stat-row"><span class="stat-label">Resolved</span><span class="stat-val amber" id="s-res">0</span></div>
+    <div class="stat-row"><span class="stat-label">Model ver.</span><span class="stat-val purple" id="s-ver">v1</span></div>
+  </div>
+  <div class="acc-bar-wrap">
+    <div class="acc-bar-label"><span>Accuracy</span><strong id="s-acc2">0%</strong></div>
+    <div class="acc-track"><div class="acc-fill" id="acc-bar" style="width:0%"></div></div>
+  </div>
+  <div class="log-toggle" onclick="toggleLog()">▸ agent log</div>
+  <div class="log-mini" id="log-mini"></div>
+</div>
+
+<!-- Main chat -->
+<div class="main">
+  <div class="chat-header">
+    <div>
+      <div class="title">Compliance Training Chat</div>
+      <div class="hint">Type a scenario. Canopy verifies it against Banyan Sapling and learns from your corrections.</div>
     </div>
-    <div class="hint" style="margin:0">Or just describe the situation in the Policy field and leave the rest blank — Mubit will parse it.</div>
-    <button class="btn-verify" onclick="runCheck()">VERIFY →</button>
+  </div>
+  <div class="messages" id="messages">
+    <div class="msg agent">
+      <div class="msg-avatar">C</div>
+      <div class="msg-body">
+        <div class="bubble">
+          Hello. I am Canopy, a compliance verification agent powered by Mubit and Banyan Sapling.<br><br>
+          Describe a compliance scenario and I will verify it. You can give me the policy, evidence, and claim separately, or just describe the situation in plain English and I will structure it automatically via Mubit.<br><br>
+          After each verdict, you can correct me if I got it wrong. Every correction goes straight to Mubit's <code>record_outcome()</code> to train a better adapter.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="input-area">
+    <div class="input-box">
+      <textarea id="user-input" placeholder="Describe a compliance scenario... (e.g. Our company sent marketing emails to 8,000 users without consent. Is this GDPR compliant?)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()">&#9650;</button>
+    </div>
+    <div class="input-hint">Night Shift 2026 · Canary Wharf · github.com/ShieldTech-Ltd/canopy</div>
   </div>
 </div>
 
-<div class="main-grid">
-  <div class="panel">
-    <div class="panel-title">Live decisions (autonomous loop)</div>
-    <table>
-      <thead><tr><th>#</th><th>Claim</th><th>Verdict</th><th>Confidence (sup · vio · ins)</th><th>OK</th><th>Model</th><th>ms</th></tr></thead>
-      <tbody>{rows}</tbody>
-    </table>
-  </div>
-  <div class="panel">
-    <div class="panel-title">INSUFFICIENT resolution log</div>
-    <table>
-      <thead><tr><th>Time</th><th>Claim</th><th>Extra evidence</th><th>Resolved</th></tr></thead>
-      <tbody>{insuff_rows}</tbody>
-    </table>
-  </div>
 </div>
-
-<div class="log-box">{log_html}</div>
-
-<footer>AUTO-REFRESH 2s &nbsp;·&nbsp; github.com/ShieldTech-Ltd/canopy &nbsp;·&nbsp; Banyan Sapling research preview</footer>
-
 <script>
-var lastVerdict = null;
-var lastPolicy = '', lastEvidence = '', lastClaim = '';
+var currentVerdict = null, currentPolicy = '', currentEvidence = '', currentClaim = '';
 
-function esc(s) {{
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
 
-function term(html) {{
-  document.getElementById('terminal').innerHTML = html;
-}}
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
 
-function step(msg, cls) {{
-  return "<span class='step " + esc(cls) + "'>" + esc(msg) + "</span>";
-}}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-function runCheck() {{
-  var policy   = document.getElementById('f-policy').value.trim();
-  var evidence = document.getElementById('f-evidence').value.trim();
-  var claim    = document.getElementById('f-claim').value.trim();
+function scrollBottom() {
+  var m = document.getElementById('messages');
+  m.scrollTop = m.scrollHeight;
+}
 
-  if (!policy) {{ alert('Please enter at least a policy or scenario description.'); return; }}
+function addMsg(role, html) {
+  var msgs = document.getElementById('messages');
+  var avatar = role === 'user' ? 'Y' : 'C';
+  var div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = '<div class="msg-avatar">' + avatar + '</div><div class="msg-body"><div class="bubble">' + html + '</div></div>';
+  msgs.appendChild(div);
+  scrollBottom();
+  return div.querySelector('.bubble');
+}
 
-  lastPolicy = policy; lastEvidence = evidence; lastClaim = claim;
+function addThinking(bubble) {
+  var steps = [
+    'Parsing your input...',
+    'Extracting policy, evidence, claim...',
+    'Calling Banyan Sapling...',
+    'Processing verdict...'
+  ];
+  var html = '<div class="thinking">';
+  steps.forEach(function(s, i) {
+    html += '<div class="step" id="step-' + i + '"><span class="step-icon">○</span>' + esc(s) + '</div>';
+  });
+  html += '</div>';
+  bubble.innerHTML = html;
+  return steps.length;
+}
 
-  term(
-    step('&gt; Received input...', 'done') +
-    step('  Parsing scenario...', 'active')
-  );
+function advanceStep(idx) {
+  var el = document.getElementById('step-' + idx);
+  if (!el) return;
+  el.className = 'step done';
+  el.querySelector('.step-icon').textContent = '✓';
+  var next = document.getElementById('step-' + (idx+1));
+  if (next) { next.className = 'step active'; next.querySelector('.step-icon').textContent = '›'; }
+}
 
-  var body = JSON.stringify({{ policy: policy, evidence: evidence, claim: claim }});
+function showVerdict(bubble, data) {
+  var conf = Math.max(data.sup || 0, data.vio || 0, data.ins || 0);
+  var html = '<div class="verdict-card">';
+  html += '<div class="verdict-badge ' + esc(data.verdict) + '">' + esc(data.verdict) + '</div>';
+  html += '<div class="conf-label">Confidence breakdown</div>';
+  html += '<div class="prob-bars">';
+  html += probRow('SUP', data.sup || 0, '#7fffd4');
+  html += probRow('VIO', data.vio || 0, '#ff6b6b');
+  html += probRow('INS', data.ins || 0, '#ffb347');
+  html += '</div>';
+  html += '<div style="font-size:11px;color:#444;margin-bottom:6px">' + esc(data.ms) + 'ms · Banyan Sapling</div>';
+  if (data.correction_status) {
+    html += '<div class="correction-sent">record_outcome() → ' + esc(data.correction_status) + '</div>';
+  }
+  html += '<div class="correction-row">';
+  html += '<span style="font-size:11px;color:#333;align-self:center">Was this correct?</span>';
+  html += '<button class="btn-corr green" onclick="correct(\'SUPPORTED\')">✓ Should be SUPPORTED</button>';
+  html += '<button class="btn-corr" onclick="correct(\'VIOLATES\')">✗ Should be VIOLATES</button>';
+  html += '</div>';
+  html += '</div>';
+  bubble.innerHTML = html;
+  scrollBottom();
+}
 
-  fetch('/check', {{
+function probRow(name, pct, color) {
+  return '<div class="prob-row"><span class="prob-name">' + esc(name) + '</span><div class="prob-track"><div class="prob-fill" style="background:' + color + ';width:' + pct + '%"></div></div><span class="prob-pct">' + esc(pct) + '%</span></div>';
+}
+
+function sendMessage() {
+  var input = document.getElementById('user-input');
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('send-btn').disabled = true;
+
+  addMsg('user', esc(text));
+  var bubble = addMsg('agent', '');
+  var nSteps = addThinking(bubble);
+
+  var timer = 0;
+  function tick() {
+    if (timer < nSteps - 1) { advanceStep(timer); timer++; setTimeout(tick, 600); }
+  }
+  advanceStep(0); timer = 1; setTimeout(tick, 600);
+
+  fetch('/check', {
     method: 'POST',
-    headers: {{ 'Content-Type': 'application/json' }},
-    body: body
-  }})
-  .then(function(r) {{ return r.json(); }})
-  .then(function(d) {{
-    lastVerdict = d.verdict;
-    var html =
-      step('&gt; Input received', 'done') +
-      step('  Policy: ' + truncate(d.policy, 70), 'done') +
-      step('  Evidence: ' + truncate(d.evidence, 70), 'done') +
-      step('  Claim: ' + truncate(d.claim, 70), 'done') +
-      step('  Calling Banyan Sapling... (' + esc(String(d.ms)) + 'ms)', 'done') +
-      "<span class='verdict-line verdict-" + esc(d.verdict) + "'>" +
-        "  Verdict: " + esc(d.verdict) + " &nbsp;&middot;&nbsp; " + esc(String(d.confidence)) + "% confidence" +
-      "</span>" +
-      "<span class='prob-line'>  sup " + esc(String(d.sup)) + "% &nbsp; vio " + esc(String(d.vio)) + "% &nbsp; ins " + esc(String(d.ins)) + "%</span>";
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({policy: text, evidence: '', claim: ''})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    currentVerdict = d.verdict;
+    currentPolicy = d.policy; currentEvidence = d.evidence; currentClaim = d.claim;
+    for (var i = 0; i < nSteps; i++) advanceStep(i);
+    showVerdict(bubble, d);
+    document.getElementById('send-btn').disabled = false;
+  })
+  .catch(function(e) {
+    bubble.innerHTML = '<span style="color:#ff4444">Error: ' + esc(e.message) + '</span>';
+    document.getElementById('send-btn').disabled = false;
+  });
+}
 
-    if (d.correction_status) {{
-      html += step('  record_outcome() fired → ' + d.correction_status, 'done');
-    }}
+function correct(correctVerdict) {
+  if (!currentVerdict) return;
+  fetch('/correct', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({policy: currentPolicy, evidence: currentEvidence, claim: currentClaim, predicted: currentVerdict, correct: correctVerdict})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var rows = document.querySelectorAll('.correction-row');
+    var last = rows[rows.length - 1];
+    if (last) last.innerHTML = '<span class="correction-sent" style="color:#a78bfa">Correction sent to Mubit → record_outcome() ' + esc(d.status) + '</span>';
+  });
+}
 
-    html += "<span class='correct-line' style='margin-top:8px;display:block'>" +
-      "Was this correct? &nbsp;" +
-      "<button class='btn-correct' onclick='sendCorrection(\"VIOLATES\")'>✗ It should be VIOLATES</button> &nbsp;" +
-      "<button class='btn-correct' style='border-color:#2a4a1a;color:#7fffd4' onclick='sendCorrection(\"SUPPORTED\")'>✗ It should be SUPPORTED</button>" +
-      "</span>";
+function toggleLog() {
+  var el = document.getElementById('log-mini');
+  var tog = document.querySelector('.log-toggle');
+  el.classList.toggle('open');
+  tog.textContent = el.classList.contains('open') ? '▾ agent log' : '▸ agent log';
+}
 
-    term(html);
-  }})
-  .catch(function(e) {{
-    term(step('Error: ' + e.message, 'done'));
-  }});
-}}
-
-function sendCorrection(correct) {{
-  if (!lastVerdict) return;
-  var body = JSON.stringify({{
-    policy: lastPolicy, evidence: lastEvidence, claim: lastClaim,
-    predicted: lastVerdict, correct: correct
-  }});
-  fetch('/correct', {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: body }})
-  .then(function(r) {{ return r.json(); }})
-  .then(function(d) {{
-    var el = document.getElementById('terminal');
-    el.innerHTML += "<span class='correction-sent'>  Correction sent to Mubit → record_outcome() " + d.status + "</span>";
-  }});
-}}
-
-function truncate(s, n) {{
-  if (!s) return '(inferred)';
-  var t = s.length > n ? s.slice(0, n) + '...' : s;
-  return esc(t);
-}}
+// Poll state every 3s
+function pollState() {
+  fetch('/state')
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    document.getElementById('s-acc').textContent = d.accuracy + '%';
+    document.getElementById('s-acc2').textContent = d.accuracy + '%';
+    document.getElementById('s-total').textContent = d.total;
+    document.getElementById('s-corr').textContent = d.corrections;
+    document.getElementById('s-ins').textContent = d.insufficient;
+    document.getElementById('s-res').textContent = d.resolved;
+    document.getElementById('s-ver').textContent = 'v' + d.version;
+    document.getElementById('acc-bar').style.width = d.accuracy + '%';
+    var ls = document.getElementById('live-status');
+    if (d.api_status === 'live') {
+      ls.textContent = 'LIVE — Banyan Sapling · ' + d.last_timing_ms + 'ms';
+      ls.style.color = '#7fffd4';
+    } else {
+      ls.textContent = d.api_status.toUpperCase();
+      ls.style.color = '#ffb347';
+    }
+    // Update mini log
+    var logEl = document.getElementById('log-mini');
+    if (logEl.classList.contains('open') && d.log) {
+      logEl.innerHTML = d.log.slice(0, 15).map(function(l) {
+        return '<div class="log-entry ' + esc(l.kind) + '"><span style="color:#1a1a2a">' + esc(l.ts) + '</span> ' + esc(l.text) + '</div>';
+      }).join('');
+    }
+  })
+  .catch(function(){});
+  setTimeout(pollState, 3000);
+}
+pollState();
 </script>
 </body>
 </html>"""
 
 
-def _insuff_rows():
-    out = ""
-    for r in state["insuff_log"]:
-        out += (
-            f"<tr><td class='warn'>{_e(r['ts'])}</td><td>{_e(r['claim'])}</td>"
-            f"<td class='dim'>{_e(r['extra'])}</td><td class='ok'>{_e(r['resolved'])}</td></tr>"
-        )
-    return out or "<tr><td colspan='4' class='dim'>No INSUFFICIENT cases yet...</td></tr>"
-
-
 def build_page():
-    api_label = (
-        f"LIVE — Banyan Sapling (research preview) · last call {state['last_timing_ms']}ms"
-        if state["api_status"] == "live"
-        else state["api_status"].upper()
-    )
-    return PAGE.format(
-        accuracy     = state["accuracy"],
-        total        = state["total"],
-        corrections  = state["corrections"],
-        insufficient = state["insufficient"],
-        resolved     = state["resolved"],
-        version      = state["version"],
-        improvement  = _improvement(),
-        rows         = _rows(),
-        insuff_rows  = _insuff_rows(),
-        log_html     = _log_html(),
-        api_label    = api_label,
-    )
+    return PAGE
 
-# ── HTTP server ───────────────────────────────────────────────────────────────
+
+# ── HTTP handlers ─────────────────────────────────────────────────────────────
 
 class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
-        html = build_page().encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(html)
+        if self.path == "/state":
+            self._json({
+                "accuracy":       state["accuracy"],
+                "total":          state["total"],
+                "corrections":    state["corrections"],
+                "insufficient":   state["insufficient"],
+                "resolved":       state["resolved"],
+                "version":        state["version"],
+                "api_status":     state["api_status"],
+                "last_timing_ms": state["last_timing_ms"],
+                "log":            state["log"][:15],
+            })
+        else:
+            body = build_page().encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body   = json.loads(self.rfile.read(length))
-
         if self.path == "/check":
             self._handle_check(body)
         elif self.path == "/correct":
@@ -723,91 +647,51 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def _handle_check(self, body):
-        policy   = body.get("policy", "").strip()
-        evidence = body.get("evidence", "").strip()
-        claim    = body.get("claim", "").strip()
-
-        # If only policy provided, try to parse with Mubit
+        policy   = str(body.get("policy",   "")).strip()
+        evidence = str(body.get("evidence", "")).strip()
+        claim    = str(body.get("claim",    "")).strip()
         if policy and (not evidence or not claim):
-            parsed = parse_input_with_mubit(policy)
+            parsed = parse_with_mubit(policy)
             if parsed:
-                policy   = parsed.get("policy",   policy)
-                evidence = parsed.get("evidence", evidence)
-                claim    = parsed.get("claim",    claim)
-
+                policy   = str(parsed.get("policy",   policy))
+                evidence = str(parsed.get("evidence", evidence))
+                claim    = str(parsed.get("claim",    claim))
         if not all([policy, evidence, claim]):
-            self._json({"error": "Need policy, evidence, and claim"}, 400)
+            self._json({"error": "Need policy, evidence and claim"}, 400)
             return
-
         try:
             status, raw_label, probs, timing = call_banyan(policy, evidence, claim)
             verdict = _verdict_to_internal(status, raw_label)
-            sup_pct = round(probs.get("supported",               0) * 100)
-            vio_pct = round(probs.get("violation",               0) * 100)
-            ins_pct = round(probs.get("insufficient_information", 0) * 100)
-
-            # Pick highest confidence
-            best_conf = max(sup_pct, vio_pct, ins_pct)
-
+            sup = round(probs.get("supported",               0) * 100)
+            vio = round(probs.get("violation",               0) * 100)
+            ins = round(probs.get("insufficient_information", 0) * 100)
             correction_status = None
-            truth_map = {"VIOLATES": "VIOLATES", "SUPPORTED": "SUPPORTED", "INSUFFICIENT": "INSUFFICIENT"}
-            # Auto-correct if model is uncertain (UNSURE)
             if verdict == "UNSURE":
-                input_text = f"Policy: {policy}\nEvidence: {evidence}\nClaim: {claim}"
-                correction_status = send_correction(input_text, verdict, "INSUFFICIENT")
-
-            _log(f"[CHAT] \"{claim[:48]}\" → {verdict} ({round(timing)}ms)", "upd")
-
+                correction_status = send_correction(f"Policy: {policy}\nEvidence: {evidence}\nClaim: {claim}", verdict, "INSUFFICIENT")
+            _log(f"[CHAT] {verdict} ({round(timing)}ms)", "upd")
             with state_lock:
-                state["total"]  += 1
+                state["total"]   += 1
                 state["correct"] += 1
                 state["accuracy"] = round(state["correct"] / state["total"] * 100, 1)
-                state["decisions"].insert(0, {
-                    "id":      state["total"],
-                    "claim":   claim[:50] + ("..." if len(claim) > 50 else ""),
-                    "status":  status,
-                    "verdict": verdict,
-                    "truth":   verdict,
-                    "correct": True,
-                    "ver":     f"v{state['version']}",
-                    "ts":      _now(),
-                    "sup":     sup_pct,
-                    "vio":     vio_pct,
-                    "ins":     ins_pct,
-                    "ms":      round(timing),
-                })
+                state["decisions"].insert(0, {"id":state["total"],"claim":claim[:52]+"...","status":status,"verdict":verdict,"truth":verdict,"correct":True,"ver":f"v{state['version']}","ts":_now(),"sup":sup,"vio":vio,"ins":ins,"ms":round(timing)})
                 state["decisions"] = state["decisions"][:20]
-
-            self._json({
-                "verdict":           verdict,
-                "status":            status,
-                "confidence":        best_conf,
-                "sup":               sup_pct,
-                "vio":               vio_pct,
-                "ins":               ins_pct,
-                "ms":                round(timing),
-                "policy":            policy,
-                "evidence":          evidence,
-                "claim":             claim,
-                "correction_status": correction_status,
-            })
+            self._json({"verdict":verdict,"status":status,"sup":sup,"vio":vio,"ins":ins,"ms":round(timing),"policy":policy,"evidence":evidence,"claim":claim,"correction_status":correction_status})
         except Exception as exc:
             self._json({"error": str(exc)}, 500)
 
     def _handle_correct(self, body):
-        policy    = body.get("policy",    "")
-        evidence  = body.get("evidence",  "")
-        claim     = body.get("claim",     "")
-        predicted = body.get("predicted", "")
-        correct   = body.get("correct",   "")
-        input_text = f"Policy: {policy}\nEvidence: {evidence}\nClaim: {claim}"
-        result = send_correction(input_text, predicted, correct)
+        policy    = str(body.get("policy",    ""))
+        evidence  = str(body.get("evidence",  ""))
+        claim     = str(body.get("claim",     ""))
+        predicted = str(body.get("predicted", ""))
+        correct   = str(body.get("correct",   ""))
+        result = send_correction(f"Policy: {policy}\nEvidence: {evidence}\nClaim: {claim}", predicted, correct)
         with state_lock:
             state["corrections"] += 1
-            _log(f"[CORRECTION] User corrected {predicted} → {correct} | record_outcome() {result}", "corr")
+            _log(f"[CORRECTION] {predicted} should be {correct} | {result}", "corr")
             if state["corrections"] % 3 == 0:
                 state["version"] += 1
-                _log(f"[MUBIT] Adapter trained → Model v{state['version']} promoted", "upd")
+                _log(f"[MUBIT] Adapter v{state['version']} promoted", "upd")
         self._json({"status": result})
 
     def _json(self, data, code=200):
@@ -815,6 +699,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
@@ -829,12 +714,8 @@ if __name__ == "__main__":
     print("  Every other team built an app that uses an AI.")
     print("  We built an app that trains one.")
     print("=" * 56)
-    print(f"\n  Dashboard: http://localhost:{PORT}")
-    print("\n  Ctrl+C to stop\n")
-
-    t = threading.Thread(target=run_agent, daemon=True)
-    t.start()
-
+    print(f"\n  Dashboard: http://localhost:{PORT}\n")
+    threading.Thread(target=run_agent, daemon=True).start()
     server = HTTPServer(("0.0.0.0", PORT), Handler)
     try:
         server.serve_forever()
