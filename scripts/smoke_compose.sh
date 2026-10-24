@@ -7,7 +7,7 @@ export CANOPY_DOMAIN=localhost
 export CANOPY_PUBLIC_ORIGIN=https://localhost:18443
 export CANOPY_HTTP_PORT=18080
 export CANOPY_HTTPS_PORT=18443
-export CANOPY_POLICY_FILE="$PWD/sample_policy.json"
+export CANOPY_POLICY_FILE="$PWD/canopy_app/sample_policy.json"
 export CANOPY_OPERATOR_TOKEN_FILE="$smoke_dir/operator-token"
 export MUBIT_API_KEY_FILE="$smoke_dir/mubit-key"
 smoke_token=ci-only-token-at-least-thirty-two-characters
@@ -50,7 +50,7 @@ docker inspect "$container_id" --format '{{json .NetworkSettings.Ports}}' \
   | python3 -c 'import json,sys; ports=json.load(sys.stdin); assert ports.get("8080/tcp") is None, ports'
 
 "${compose[@]}" exec -T canopy python -c \
-  'import canopy; canopy.create_decision("synthetic facts", "synthetic reply", "SUPPORTED", "mreq_ci_synthetic", 1)'
+  'from canopy_app import canopy; canopy.create_decision("synthetic facts", "synthetic reply", "SUPPORTED", "mreq_ci_synthetic", 1)'
 form_token=$(curl --insecure --silent --fail --user "operator:$smoke_token" \
   https://localhost:18443/ | python3 -c \
   'import html,re,sys; page=sys.stdin.read(); match=re.search(r"name=\"csrf\" value=\"([^\"]+)\"", page); assert match; print(html.unescape(match.group(1)))')
@@ -68,10 +68,10 @@ curl --insecure --silent --fail --user "operator:$smoke_token" \
   --data-urlencode 'reason=Synthetic reviewer correction' \
   https://localhost:18443/review >/dev/null
 "${compose[@]}" exec -T canopy python -c \
-  'import canopy; row=canopy.recent()[0]; assert row["review_verdict"]=="VIOLATES" and row["feedback_status"]=="local_only"'
+  'from canopy_app import canopy; row=canopy.recent()[0]; assert row["review_verdict"]=="VIOLATES" and row["feedback_status"]=="local_only"'
 "${compose[@]}" restart canopy
 "${compose[@]}" exec -T canopy python -c \
-  'import canopy; rows=canopy.recent(); assert len(rows)==1 and rows[0]["policy_hash"]==canopy.POLICY_HASH'
+  'from canopy_app import canopy; rows=canopy.recent(); assert len(rows)==1 and rows[0]["policy_hash"]==canopy.POLICY_HASH'
 "${compose[@]}" exec -T canopy python manage.py backup --output /data/ci-backup.sqlite3
 "${compose[@]}" exec -T canopy python -c \
   'import shutil,sqlite3; shutil.copy2("/data/ci-backup.sqlite3", "/tmp/ci-restored.sqlite3"); db=sqlite3.connect("/tmp/ci-restored.sqlite3"); assert db.execute("PRAGMA integrity_check").fetchone()[0]=="ok"; assert db.execute("SELECT count(*) FROM decisions").fetchone()[0]==1; db.close()'

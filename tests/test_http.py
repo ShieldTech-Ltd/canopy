@@ -6,7 +6,7 @@ from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
-import canopy
+from canopy_app import canopy
 
 
 class HttpTests(unittest.TestCase):

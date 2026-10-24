@@ -2,6 +2,10 @@
 
 Canopy checks drafted support replies against a small, versioned refund policy. A reviewer can correct a verdict and record the rule and reason. It is a focused **Recurring tasks** MVP for Night Shift 2026.
 
+## Repository layout
+
+`canopy_app/` holds the existing application, evaluation cases, and database maintenance code. `tests/` holds the regression tests. The three root entry points (`canopy.py`, `manage.py`, and `evaluate.py`) keep the existing run commands working. Deployment files are in `deploy/`, and operational smoke checks are in `scripts/`. This layout changes imports and file paths only; it does not add multi-instance support.
+
 The bundled policy and cases are fictional demo material. The app has no customer integration. Its default network binding is localhost; a container deployment can bind internally to all interfaces only with operator authentication and a declared HTTPS public origin.
 
 ## What is real today
@@ -56,7 +60,7 @@ Back up the SQLite database with `python manage.py backup --output /safe/locatio
 
 ## Evaluation
 
-`cases.py` has 40 distinct training examples and a separate 12-case holdout. Labels follow `sample_policy.json`, not a model self-assessment. Run only when the team wants to spend real model credits:
+`canopy_app/cases.py` has 40 distinct training examples and a separate 12-case holdout. Labels follow `canopy_app/sample_policy.json`, not a model self-assessment. Run only when the team wants to spend real model credits:
 
 ```bash
 python evaluate.py --set holdout --stage baseline --output reports/baseline.json

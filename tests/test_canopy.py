@@ -9,9 +9,8 @@ from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
-import canopy
-import manage
-from cases import HOLDOUT, SAMPLE_POLICY_HASH, TRAIN
+from canopy_app import canopy, manage
+from canopy_app.cases import HOLDOUT, SAMPLE_POLICY_HASH, TRAIN
 
 
 class CanopyTests(unittest.TestCase):
