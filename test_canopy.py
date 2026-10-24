@@ -62,6 +62,26 @@ class CanopyTests(unittest.TestCase):
             canopy.review(number, "APPROVED", "R1", "wrong")
         self.assertIsNone(canopy.recent()[0]["review_verdict"])
 
+    def test_review_uses_policy_at_decision_time(self):
+        number = canopy.create_decision("facts", "reply", "SUPPORTED", "mreq_test", 10)
+        self.assertEqual(json.loads(canopy.recent()[0]["policy_json"]), canopy.POLICY)
+        new_policy = {"version": "v2", "rules": [{"id": "NEW", "text": "New rule"}]}
+        with patch.object(canopy, "POLICY", new_policy):
+            self.assertIn('name="rule"><option>R1', canopy.page())
+            self.assertNotIn('name="rule"><option>NEW', canopy.page())
+            with self.assertRaisesRegex(ValueError, "this case"):
+                canopy.review(number, "VIOLATES", "NEW", "New rule")
+            self.assertTrue(canopy.review(number, "VIOLATES", "R1", "Original rule"))
+
+    def test_legacy_case_without_policy_snapshot_cannot_be_reviewed(self):
+        number = canopy.create_decision("facts", "reply", "SUPPORTED", "mreq_test", 10)
+        with closing(sqlite3.connect(canopy.DB_PATH)) as db:
+            db.execute("UPDATE decisions SET policy_json=NULL WHERE id=?", (number,))
+            db.commit()
+        with self.assertRaisesRegex(ValueError, "Legacy case"):
+            canopy.review(number, "VIOLATES", "R1", "No snapshot")
+        self.assertIn("Review unavailable: legacy case", canopy.page())
+
     def test_html_escapes_model_inputs(self):
         canopy.create_decision("<script>alert(1)</script>", "<img src=x>",
                                "SUPPORTED", None, 12)
@@ -131,6 +151,12 @@ class CanopyTests(unittest.TestCase):
         self.assertEqual(canopy.recent(), [])
         with closing(sqlite3.connect(target)) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM decisions").fetchone()[0], 2)
+
+    def test_database_rejects_readable_existing_file(self):
+        canopy.DB_PATH.touch(mode=0o644)
+        canopy.DB_PATH.chmod(0o644)
+        with self.assertRaisesRegex(PermissionError, "owner-only"):
+            canopy.database()
 
 
 if __name__ == "__main__":

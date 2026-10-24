@@ -102,14 +102,17 @@ def authenticated(header):
 
 def database():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    new_file = not DB_PATH.exists()
+    descriptor = os.open(DB_PATH, os.O_RDWR | os.O_CREAT, 0o600)
+    os.close(descriptor)
+    if DB_PATH.stat().st_mode & 0o077:
+        raise PermissionError("Decision database must be owner-only")
     db = sqlite3.connect(DB_PATH, timeout=5)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("PRAGMA busy_timeout=5000")
     db.execute("""CREATE TABLE IF NOT EXISTS decisions (
         id INTEGER PRIMARY KEY, created_at TEXT NOT NULL, policy_version TEXT NOT NULL,
-        policy_hash TEXT,
+        policy_hash TEXT, policy_json TEXT,
         recording_requested INTEGER NOT NULL DEFAULT 0,
         facts TEXT NOT NULL, reply TEXT NOT NULL, prediction TEXT NOT NULL,
         request_id TEXT, latency_ms INTEGER, review_verdict TEXT, review_rule TEXT,
@@ -120,9 +123,9 @@ def database():
         db.execute("ALTER TABLE decisions ADD COLUMN policy_hash TEXT")
     if "recording_requested" not in columns:
         db.execute("ALTER TABLE decisions ADD COLUMN recording_requested INTEGER NOT NULL DEFAULT 0")
+    if "policy_json" not in columns:
+        db.execute("ALTER TABLE decisions ADD COLUMN policy_json TEXT")
     db.commit()
-    if new_file:
-        DB_PATH.chmod(0o600)
     return db
 
 
@@ -176,20 +179,29 @@ def create_decision(facts, reply, prediction, request_id, latency_ms, recording_
         with closing(database()) as db:
             row = db.execute(
                 """INSERT INTO decisions(created_at,policy_version,policy_hash,recording_requested,
-                   facts,reply,prediction,request_id,latency_ms) VALUES(?,?,?,?,?,?,?,?,?)""",
+                   policy_json,facts,reply,prediction,request_id,latency_ms) VALUES(?,?,?,?,?,?,?,?,?,?)""",
                 (datetime.now(timezone.utc).isoformat(timespec="seconds"), POLICY["version"], POLICY_HASH,
-                 int(recording_requested), facts, reply, prediction, request_id, latency_ms))
+                 int(recording_requested), json.dumps(POLICY, sort_keys=True), facts, reply,
+                 prediction, request_id, latency_ms))
             db.commit()
             return row.lastrowid
 
 
 def review(decision_id, verdict, rule_id, rationale):
-    if verdict not in VERDICTS or rule_id not in {r["id"] for r in POLICY["rules"]}:
-        raise ValueError("Invalid verdict or policy rule")
+    if verdict not in VERDICTS:
+        raise ValueError("Invalid verdict")
     if not rationale.strip() or len(rationale) > MAX_FIELD:
         raise ValueError("A short rationale is required")
     with LOCK:
         with closing(database()) as db:
+            decision = db.execute("SELECT policy_json FROM decisions WHERE id=?", (decision_id,)).fetchone()
+            if decision is None:
+                return False
+            if not decision["policy_json"]:
+                raise ValueError("Legacy case has no policy snapshot; review unavailable")
+            policy = json.loads(decision["policy_json"])
+            if rule_id not in {r["id"] for r in policy["rules"]}:
+                raise ValueError("Invalid policy rule for this case")
             row = db.execute(
                 """UPDATE decisions SET review_verdict=?, review_rule=?, rationale=?,
                    reviewed_at=?, feedback_status='local_only'
@@ -213,7 +225,6 @@ def e(value):
 def page(message="", error=False):
     rules = "".join(f"<li><b>{e(r['id'])}</b> {e(r['text'])}</li>" for r in POLICY["rules"])
     verdicts = "".join(f"<option>{v}</option>" for v in sorted(VERDICTS))
-    ids = "".join(f"<option>{e(r['id'])}</option>" for r in POLICY["rules"])
     cases = []
     try:
         rows = recent()
@@ -225,14 +236,22 @@ def page(message="", error=False):
         if row["review_verdict"]:
             action = (f"<p class='good'>Reviewed as <b>{e(row['review_verdict'])}</b> "
                       f"under {e(row['review_rule'])}: {e(row['rationale'])}</p>")
-        else:
-            action = f"""<form method="post" action="/review">
+        elif row["policy_json"]:
+            case_policy = json.loads(row["policy_json"])
+            ids = "".join(f"<option>{e(r['id'])}</option>" for r in case_policy["rules"])
+            historical_rules = "".join(
+                f"<li><b>{e(r['id'])}</b> {e(r['text'])}</li>" for r in case_policy["rules"]
+            )
+            action = f"""<details><summary>Policy used for this case</summary><ol>{historical_rules}</ol></details>
+                <form method="post" action="/review">
                 <input type="hidden" name="csrf" value="{TOKEN}">
                 <input type="hidden" name="id" value="{row['id']}">
                 <label>Correct verdict<select name="verdict">{verdicts}</select></label>
                 <label>Policy rule<select name="rule">{ids}</select></label>
                 <label>Reason<input name="reason" maxlength="2000" required></label>
                 <button>Save reviewer correction</button></form>"""
+        else:
+            action = "<p class='warning'>Review unavailable: legacy case has no policy snapshot.</p>"
         cases.append(f"""<article><h3>Case #{row['id']}</h3>
             <p><b>Facts:</b> {e(row['facts'])}</p><p><b>Draft:</b> {e(row['reply'])}</p>
             <p><b>Mubit verdict:</b> {e(row['prediction'])} · {e(row['latency_ms'])} ms</p>
@@ -259,8 +278,9 @@ def page(message="", error=False):
     textarea{{min-height:90px}}button{{background:#8cf1ad;border:0;border-radius:6px;padding:12px 16px;
     color:#092015;font-weight:700;cursor:pointer}}
     </style></head><body><header><h1>Canopy</h1><p class="muted">{status}</p></header>{banner}
-    <section><h2>Sample refund policy · {e(POLICY['version'])}</h2>
-    <p>This is a fictional demo policy. No customer account is connected.</p><ol>{rules}</ol></section>
+    <section><h2>Active policy · {e(POLICY['version'])}</h2>
+    <p>Use only fictional or approved data. Policy rules shown here apply to new checks.</p>
+    <ol>{rules}</ol></section>
     <section><h2>Check a drafted reply</h2><form method="post" action="/check">
     <input type="hidden" name="csrf" value="{TOKEN}">
     <label>Customer facts<textarea name="facts" maxlength="2000" required

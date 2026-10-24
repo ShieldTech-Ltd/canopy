@@ -1,6 +1,7 @@
 """Local single-operator database maintenance. Destructive actions require --apply."""
 
 import argparse
+import os
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -14,10 +15,15 @@ def backup(destination):
     if destination.resolve() == canopy.DB_PATH.resolve() or destination.exists():
         raise ValueError("Backup destination must be a new path distinct from the database")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with closing(canopy.database()) as source:
-        with closing(sqlite3.connect(destination)) as target:
-            source.backup(target)
-    destination.chmod(0o600)
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    os.close(descriptor)
+    try:
+        with closing(canopy.database()) as source:
+            with closing(sqlite3.connect(destination)) as target:
+                source.backup(target)
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
     return destination
 
 

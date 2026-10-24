@@ -109,6 +109,7 @@ class HttpTests(unittest.TestCase):
                 rationale TEXT, reviewed_at TEXT, feedback_status TEXT NOT NULL DEFAULT 'not_submitted'
             )""")
             db.commit()
+        canopy.DB_PATH.chmod(0o600)
         number = canopy.create_decision("facts", "reply", "SUPPORTED", "mreq_test", 12)
         self.assertEqual(canopy.recent()[0]["id"], number)
         self.assertEqual(canopy.recent()[0]["policy_hash"], canopy.POLICY_HASH)
