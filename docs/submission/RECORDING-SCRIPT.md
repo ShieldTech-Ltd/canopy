@@ -9,7 +9,7 @@ Use the **Recurring tasks** track and fictional or approved non-sensitive cases.
 1. Confirm Render's deployed commit is the intended commit on `main`, then open `/livez`. Its build label is a release string, not a Git commit hash. `/api/status` showing `configured=true` proves key presence only.
 2. Select training retention for the fictional case, then run it through the deployed app. Check the verdict, policy quote, and fresh `mreq_` IDs. Match the verification ID in Mubit Requests. If Mubit is unavailable, show the error honestly and wait for service recovery before recording a successful run.
 3. Save a human review, reopen the case in the same browser session, and confirm the reason and original request ID remain. A review of a correct verdict is a **confirmation**. A different verdict is a **correction**. Both are currently `local_only`.
-4. Have the teammate who owns the Mubit project read the task's actual kept-example count, adapter version, and test result. A recorded call is not necessarily a kept example. Use the adapter ending below only if a version is `Passed` and available in Try models.
+4. Have the teammate who owns the Mubit project read the **current verification task's** kept-example count, adapter version, and test result. The 25 October instruction change may have created a new Mubit task. Do not combine counts across task versions. A recorded call is not necessarily a kept example. Use the adapter ending below only if a version is `Passed` and available in Try models.
 5. Check whether Render uses a persistent disk for `CANOPY_AGENT_DB` and whether the case survives a restart. Reopening within one deployment proves SQLite storage, not persistence across redeploys.
 
 ## Capture sequence (target 1:50)

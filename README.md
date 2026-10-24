@@ -37,6 +37,8 @@ flowchart LR
 
 **Current limitation:** human corrections are saved locally. The event team's supported correction-to-adapter integration is not connected. Canopy does not report that a model was trained, invent adapter versions, or claim measured accuracy improvement. A recorded call is not necessarily a *kept* training example.
 
+The verification instruction was refined on 25 October to distinguish a missing record from evidence that a required step did not happen. Mubit may group calls with the revised instruction into a new task; use the current task's kept-example count rather than adding counts from earlier versions.
+
 All inference in this entrypoint goes through `https://api.mubit.ai/openai/v1`.
 
 ## Run locally
