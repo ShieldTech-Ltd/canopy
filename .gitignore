@@ -1,4 +1,5 @@
 .env
+.venv/
 canopy.sqlite3*
 canopy-agent.sqlite3*
 reports-preview*.log
