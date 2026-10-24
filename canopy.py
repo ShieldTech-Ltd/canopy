@@ -7,6 +7,7 @@ Run:  python canopy.py
 Open: http://localhost:8080
 """
 
+import html as html_mod
 import json
 import os
 import time
@@ -16,6 +17,9 @@ import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
+
+def _e(s):
+    return html_mod.escape(str(s))
 
 # ── Load .env ────────────────────────────────────────────────────────────────
 _env = os.path.join(os.path.dirname(__file__), ".env")
@@ -389,16 +393,16 @@ def _rows():
         vc = colours.get(r["verdict"], "dim")
         out += (
             f"<tr>"
-            f"<td class='dim'>{r['id']}</td>"
-            f"<td>{r['claim']}</td>"
-            f"<td><span class='{vc}'>{r['verdict']}</span><br>"
-            f"<span style='font-size:9px;color:#333'>{r['status']}</span></td>"
+            f"<td class='dim'>{_e(r['id'])}</td>"
+            f"<td>{_e(r['claim'])}</td>"
+            f"<td><span class='{vc}'>{_e(r['verdict'])}</span><br>"
+            f"<span style='font-size:9px;color:#333'>{_e(r['status'])}</span></td>"
             f"<td>{_prob_bar(r['sup'],'#7fffd4')}&nbsp;"
             f"{_prob_bar(r['vio'],'#ff6b6b')}&nbsp;"
             f"{_prob_bar(r['ins'],'#ffb347')}</td>"
             f"<td class='{c}'>{sy}</td>"
-            f"<td class='dim' style='font-size:10px'>{r['ver']}</td>"
-            f"<td class='dim'>{r['ms']}ms</td>"
+            f"<td class='dim' style='font-size:10px'>{_e(r['ver'])}</td>"
+            f"<td class='dim'>{_e(r['ms'])}ms</td>"
             f"</tr>"
         )
     return out or "<tr><td colspan='7' class='dim'>Connecting to Banyan Sapling...</td></tr>"
@@ -407,7 +411,7 @@ def _rows():
 def _log_html():
     out = ""
     for l in state["log"]:
-        out += f"<div class='{l['kind']}'><span class='ts'>{l['ts']}</span> {l['text']}</div>"
+        out += f"<div class='{_e(l['kind'])}'><span class='ts'>{_e(l['ts'])}</span> {_e(l['text'])}</div>"
     return out or "<div class='dim'>Initialising...</div>"
 
 
@@ -577,12 +581,16 @@ footer{{font-size:10px;color:#1a1a2a;letter-spacing:1px}}
 var lastVerdict = null;
 var lastPolicy = '', lastEvidence = '', lastClaim = '';
 
+function esc(s) {{
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}}
+
 function term(html) {{
   document.getElementById('terminal').innerHTML = html;
 }}
 
 function step(msg, cls) {{
-  return "<span class='step " + cls + "'>" + msg + "</span>";
+  return "<span class='step " + esc(cls) + "'>" + esc(msg) + "</span>";
 }}
 
 function runCheck() {{
@@ -614,11 +622,11 @@ function runCheck() {{
       step('  Policy: ' + truncate(d.policy, 70), 'done') +
       step('  Evidence: ' + truncate(d.evidence, 70), 'done') +
       step('  Claim: ' + truncate(d.claim, 70), 'done') +
-      step('  Calling Banyan Sapling... (' + d.ms + 'ms)', 'done') +
-      "<span class='verdict-line verdict-" + d.verdict + "'>" +
-        "  Verdict: " + d.verdict + " &nbsp;·&nbsp; " + d.confidence + "% confidence" +
+      step('  Calling Banyan Sapling... (' + esc(String(d.ms)) + 'ms)', 'done') +
+      "<span class='verdict-line verdict-" + esc(d.verdict) + "'>" +
+        "  Verdict: " + esc(d.verdict) + " &nbsp;&middot;&nbsp; " + esc(String(d.confidence)) + "% confidence" +
       "</span>" +
-      "<span class='prob-line'>  sup " + d.sup + "% &nbsp; vio " + d.vio + "% &nbsp; ins " + d.ins + "%</span>";
+      "<span class='prob-line'>  sup " + esc(String(d.sup)) + "% &nbsp; vio " + esc(String(d.vio)) + "% &nbsp; ins " + esc(String(d.ins)) + "%</span>";
 
     if (d.correction_status) {{
       html += step('  record_outcome() fired → ' + d.correction_status, 'done');
@@ -653,7 +661,8 @@ function sendCorrection(correct) {{
 
 function truncate(s, n) {{
   if (!s) return '(inferred)';
-  return s.length > n ? s.slice(0, n) + '...' : s;
+  var t = s.length > n ? s.slice(0, n) + '...' : s;
+  return esc(t);
 }}
 </script>
 </body>
@@ -664,8 +673,8 @@ def _insuff_rows():
     out = ""
     for r in state["insuff_log"]:
         out += (
-            f"<tr><td class='warn'>{r['ts']}</td><td>{r['claim']}</td>"
-            f"<td class='dim'>{r['extra']}</td><td class='ok'>{r['resolved']}</td></tr>"
+            f"<tr><td class='warn'>{_e(r['ts'])}</td><td>{_e(r['claim'])}</td>"
+            f"<td class='dim'>{_e(r['extra'])}</td><td class='ok'>{_e(r['resolved'])}</td></tr>"
         )
     return out or "<tr><td colspan='4' class='dim'>No INSUFFICIENT cases yet...</td></tr>"
 
