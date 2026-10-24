@@ -22,8 +22,6 @@ flowchart LR
     D -. No confirmed feedback submission .-> M
 ```
 
-![The supplied policy, evidence, claim, and verification request ID](docs/demo/evidence.jpg)
-
 ## What runs today
 
 1. Natural-language cases are extracted through the Mubit gateway. Missing policy or facts are requested rather than invented.
