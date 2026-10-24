@@ -22,6 +22,13 @@ ROOT = Path(__file__).resolve().parent
 POLICY_PATH = Path(os.getenv("CANOPY_POLICY_PATH", ROOT / "sample_policy.json"))
 
 
+def secret(name):
+    value, file_path = os.getenv(name, ""), os.getenv(f"{name}_FILE", "")
+    if value and file_path:
+        raise ValueError(f"Set only {name} or {name}_FILE")
+    return Path(file_path).read_text().rstrip("\r\n") if file_path else value
+
+
 def load_policy(path):
     policy = json.loads(Path(path).read_text())
     if not isinstance(policy, dict) or set(policy) != {"version", "rules"}:
@@ -50,8 +57,8 @@ def load_policy(path):
 POLICY = load_policy(POLICY_PATH)
 DB_PATH = Path(os.getenv("CANOPY_DB_PATH", ROOT / "canopy.sqlite3"))
 HOST, PORT = os.getenv("CANOPY_BIND_HOST", "127.0.0.1"), int(os.getenv("CANOPY_PORT", "8080"))
-MODEL, KEY = os.getenv("MUBIT_MODEL", "gpt-4.1-mini"), os.getenv("MUBIT_API_KEY", "")
-OPERATOR_TOKEN = os.getenv("CANOPY_OPERATOR_TOKEN", "")
+MODEL, KEY = os.getenv("MUBIT_MODEL", "gpt-4.1-mini"), secret("MUBIT_API_KEY")
+OPERATOR_TOKEN = secret("CANOPY_OPERATOR_TOKEN")
 DEMO_MODE = os.getenv("CANOPY_DEMO_MODE") == "1"
 PUBLIC_ORIGIN = os.getenv("CANOPY_PUBLIC_ORIGIN", f"http://127.0.0.1:{PORT}").rstrip("/")
 TOKEN, LOCK = secrets.token_urlsafe(32), Lock()

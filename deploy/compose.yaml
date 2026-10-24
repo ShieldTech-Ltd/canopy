@@ -1,0 +1,61 @@
+services:
+  canopy:
+    build:
+      context: ..
+    restart: unless-stopped
+    init: true
+    environment:
+      CANOPY_PUBLIC_ORIGIN: https://${CANOPY_DOMAIN:?Set CANOPY_DOMAIN}
+      CANOPY_POLICY_PATH: /run/canopy-policy.json
+      CANOPY_OPERATOR_TOKEN_FILE: /run/secrets/operator_token
+      MUBIT_API_KEY_FILE: /run/secrets/mubit_api_key
+      MUBIT_MODEL: ${MUBIT_MODEL:-gpt-4.1-mini}
+    secrets:
+      - operator_token
+      - mubit_api_key
+    volumes:
+      - canopy_data:/data
+      - ${CANOPY_POLICY_FILE:?Set CANOPY_POLICY_FILE}:/run/canopy-policy.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: "1.0"
+    networks:
+      - private
+
+  caddy:
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    environment:
+      CANOPY_DOMAIN: ${CANOPY_DOMAIN:?Set CANOPY_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - canopy
+    networks:
+      - private
+
+secrets:
+  operator_token:
+    file: ${CANOPY_OPERATOR_TOKEN_FILE:?Set CANOPY_OPERATOR_TOKEN_FILE}
+  mubit_api_key:
+    file: ${MUBIT_API_KEY_FILE:?Set MUBIT_API_KEY_FILE}
+
+volumes:
+  canopy_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  private:

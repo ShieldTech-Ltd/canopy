@@ -38,6 +38,8 @@ For a disposable local UI check without credentials, run `CANOPY_DEMO_MODE=1 pyt
 
 The Gunicorn service is designed to run behind a TLS reverse proxy. Basic credentials are safe only over HTTPS outside localhost. Set a 32+ character operator token, `MUBIT_API_KEY`, and `CANOPY_PUBLIC_ORIGIN=https://your-host`. The proxy must pass the original `Host` header and should bind the app's published port to loopback or a private network. Never expose the container's plain HTTP port directly to the internet. The app rejects non-local public origins without HTTPS and rejects non-local binding in demo mode.
 
+For a single-host deployment, `deploy/compose.yaml` provides Caddy for public HTTPS and keeps Canopy on an internal network. Copy `deploy/env.example` to a private environment file outside the repository and set a real DNS name, an absolute path to an approved policy, and absolute paths to two private secret files. Put the operator token and Mubit key in separate files with `0600` host permissions; the app reads them through `CANOPY_OPERATOR_TOKEN_FILE` and `MUBIT_API_KEY_FILE`. It rejects a secret supplied both directly and by file. Start with `docker compose --env-file /private/path/canopy.env -f deploy/compose.yaml up -d --build`. DNS, inbound 80/443, persistent Docker volumes, backup storage, and certificate issuance must be verified on the actual host. This template has not been deployed from this checkout.
+
 ```bash
 docker build -t canopy:local .
 docker volume create canopy-data

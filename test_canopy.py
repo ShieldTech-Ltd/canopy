@@ -3,6 +3,7 @@ import unittest
 import sqlite3
 import json
 import shutil
+import os
 from contextlib import closing
 from types import SimpleNamespace
 from pathlib import Path
@@ -95,6 +96,16 @@ class CanopyTests(unittest.TestCase):
         with patch.object(canopy, "KEY", ""):
             with self.assertRaisesRegex(RuntimeError, "MUBIT_API_KEY"):
                 canopy.predict("facts", "reply")
+
+    def test_file_secret_and_ambiguous_config(self):
+        secret_file = Path(self.directory.name) / "secret"
+        secret_file.write_text("test-secret\n")
+        with patch.dict(os.environ, {"TEST_SECRET_FILE": str(secret_file)}, clear=True):
+            self.assertEqual(canopy.secret("TEST_SECRET"), "test-secret")
+        with patch.dict(os.environ, {"TEST_SECRET_FILE": str(secret_file),
+                                     "TEST_SECRET": "other"}, clear=True):
+            with self.assertRaisesRegex(ValueError, "only"):
+                canopy.secret("TEST_SECRET")
 
     def test_provider_recording_opt_in_and_mubit_provenance(self):
         calls = []
