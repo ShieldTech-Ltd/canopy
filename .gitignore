@@ -1,4 +1,6 @@
 .env
+canopy.sqlite3*
+reports/
 __pycache__/
 *.pyc
 *.pyo
