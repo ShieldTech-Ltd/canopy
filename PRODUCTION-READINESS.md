@@ -10,7 +10,7 @@ Canopy is a **single-operator pilot**, not a customer-facing multi-tenant servic
 | Model routing | Source fixes the Mubit base URL and rejects responses without an `mreq_` ID. | Run an authenticated live call and match its request ID and payload to Mubit Requests. Confirm the selected provider model is available. |
 | Learning loop | Human review is durably stored as `local_only`. Guessed feedback endpoints were removed. | Obtain and implement the hackathon's documented correction contract; verify accepted feedback, kept examples, training status, and an actual adapter result. A local review does not satisfy this gate. |
 | Quality | Fixed sample-policy collection and holdout sets, per-case outputs, latency, and errors. Holdout requests recording off. | Run a live baseline, then evaluate a confirmed passing adapter on unseen cases. Report provider, Mubit test, and human labels separately; do not infer improvement from cumulative accuracy. |
-| Operations | `/livez`, authenticated `/readyz`, bounded requests and concurrent calls, safe structured logs, non-root image, 16 local tests. | Build and run the container in the target environment; verify persistence, restart, backup/restore, log collection, error alerts, and resource limits. |
+| Operations | Gunicorn serves the Flask app; `/livez`, authenticated `/readyz`, bounded requests and concurrent calls, safe structured logs, non-root image, 16 local tests. | Build and run the container in the target environment; verify persistence, restart, backup/restore, log collection, error alerts, and resource limits. |
 
 ## Deployment acceptance run
 

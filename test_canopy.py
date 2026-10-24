@@ -2,6 +2,7 @@ import tempfile
 import unittest
 import sqlite3
 import json
+from contextlib import closing
 from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
@@ -115,8 +116,9 @@ class CanopyTests(unittest.TestCase):
     def test_backup_and_retention_are_explicit(self):
         old = canopy.create_decision("old", "reply", "SUPPORTED", "mreq_old", 12)
         recent = canopy.create_decision("new", "reply", "SUPPORTED", "mreq_new", 12)
-        with sqlite3.connect(canopy.DB_PATH) as db:
+        with closing(sqlite3.connect(canopy.DB_PATH)) as db:
             db.execute("UPDATE decisions SET created_at='2020-01-01T00:00:00+00:00' WHERE id=?", (old,))
+            db.commit()
         target = Path(self.directory.name) / "backup.sqlite3"
         self.assertEqual(manage.backup(target), target)
         self.assertEqual(target.stat().st_mode & 0o777, 0o600)
@@ -127,7 +129,7 @@ class CanopyTests(unittest.TestCase):
         self.assertEqual(manage.delete_case(recent), 1)
         self.assertEqual(manage.delete_case(recent, apply=True), 1)
         self.assertEqual(canopy.recent(), [])
-        with sqlite3.connect(target) as db:
+        with closing(sqlite3.connect(target)) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM decisions").fetchone()[0], 2)
 
 

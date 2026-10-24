@@ -12,10 +12,11 @@ import sqlite3
 import time
 from contextlib import closing
 from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import BoundedSemaphore, Lock
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
+
+from flask import Flask, Response, request
 
 ROOT = Path(__file__).resolve().parent
 POLICY_PATH = Path(os.getenv("CANOPY_POLICY_PATH", ROOT / "sample_policy.json"))
@@ -274,113 +275,137 @@ def page(message="", error=False):
     {''.join(cases) or '<p>No live decisions yet.</p>'}</section></body></html>"""
 
 
-class Handler(BaseHTTPRequestHandler):
-    def respond(self, code, body):
-        data = body.encode()
-        self.send_response(code)
-        for name, value in {
-            "Content-Type": "text/html; charset=utf-8", "Content-Length": str(len(data)),
-            "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-            "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
-        }.items():
-            self.send_header(name, value)
-        self.end_headers()
-        self.wfile.write(data)
+app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 8192
+app.config["MAX_FORM_MEMORY_SIZE"] = 8192
 
-    def allowed(self):
-        allowed_hosts = {urlparse(PUBLIC_ORIGIN).netloc, f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
-        if self.headers.get("Host") not in allowed_hosts:
-            self.respond(400, "Invalid host")
-            return False
-        if not authenticated(self.headers.get("Authorization")):
-            self.send_response(401)
-            self.send_header("WWW-Authenticate", 'Basic realm="Canopy operator"')
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-            return False
-        return True
 
-    def do_GET(self):
-        if self.path == "/livez":
-            return self.respond(200, "live")
-        if not self.allowed():
-            return
-        if self.path == "/readyz":
-            ready = bool(KEY) and storage_ready()
-            return self.respond(200 if ready else 503, "ready" if ready else "unavailable")
-        self.respond(200 if self.path == "/" else 404,
-                     page() if self.path == "/" else page("Not found", True))
+@app.before_request
+def gate_request():
+    if request.path == "/livez":
+        return None
+    try:
+        validate_config()
+    except ValueError:
+        return Response("Configuration unavailable", status=503)
+    allowed_hosts = {urlparse(PUBLIC_ORIGIN).netloc, f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+    if request.host not in allowed_hosts:
+        return Response("Invalid host", status=400)
+    if not authenticated(request.headers.get("Authorization")):
+        return Response("", status=401, headers={"WWW-Authenticate": 'Basic realm="Canopy operator"'})
+    return None
 
-    def do_POST(self):
-        if not self.allowed():
-            return
-        if self.path not in {"/check", "/review"}:
-            return self.respond(404, page("Not found", True))
-        if self.headers.get("Origin") not in {PUBLIC_ORIGIN, f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"}:
-            return self.respond(403, page("Origin rejected", True))
-        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/x-www-form-urlencoded":
-            return self.respond(415, page("Unsupported request type", True))
+
+@app.after_request
+def secure_response(response):
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'"
+    )
+    return response
+
+
+@app.get("/livez")
+def live():
+    return Response("live", mimetype="text/plain")
+
+
+@app.get("/readyz")
+def ready():
+    is_ready = bool(KEY) and storage_ready()
+    return Response("ready" if is_ready else "unavailable",
+                    status=200 if is_ready else 503, mimetype="text/plain")
+
+
+@app.get("/")
+def index():
+    return page()
+
+
+def form_field(name):
+    values = request.form.getlist(name)
+    if len(values) != 1:
+        raise ValueError(f"Exactly one {name} field is required")
+    return values[0].strip()
+
+
+def validate_form():
+    if request.headers.get("Origin") not in {
+        PUBLIC_ORIGIN, f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"
+    }:
+        return page("Origin rejected", True), 403
+    if request.mimetype != "application/x-www-form-urlencoded":
+        return page("Unsupported request type", True), 415
+    if not request.content_length or request.content_length > 8192:
+        return page("Invalid request size", True), 413
+    csrf = request.form.getlist("csrf")
+    if len(csrf) != 1 or not secrets.compare_digest(csrf[0], TOKEN):
+        return page("Review token rejected", True), 403
+    return None
+
+
+@app.post("/check")
+def check():
+    try:
+        failure = validate_form()
+        if failure:
+            return failure
+        facts, reply = form_field("facts"), form_field("reply")
+        if not facts or not reply or len(facts) > MAX_FIELD or len(reply) > MAX_FIELD:
+            raise ValueError("Facts and reply must each be 1–2000 characters")
+        record_values = request.form.getlist("record")
+        if record_values not in ([], ["yes"]):
+            raise ValueError("Invalid recording choice")
+        record = bool(record_values)
+        if not KEY:
+            return page("Mubit key unavailable; no model call made.", True), 503
+        if not storage_ready():
+            return page("Decision store unavailable; no model call made.", True), 503
+        if not PREDICT_LIMIT.acquire(blocking=False):
+            return page("Too many checks in progress", True), 429
         try:
-            size = int(self.headers.get("Content-Length", "0"))
-            if not 0 < size <= 8192:
-                return self.respond(413, page("Invalid request size", True))
-            form = parse_qs(self.rfile.read(size).decode(), strict_parsing=True)
-            if not secrets.compare_digest(form.get("csrf", [""])[0], TOKEN):
-                return self.respond(403, page("Review token rejected", True))
-            def field(name):
-                values = form.get(name, [])
-                if len(values) != 1:
-                    raise ValueError(f"Exactly one {name} field is required")
-                return values[0].strip()
-            if self.path == "/check":
-                facts, reply = field("facts"), field("reply")
-                if not facts or not reply or len(facts) > MAX_FIELD or len(reply) > MAX_FIELD:
-                    raise ValueError("Facts and reply must each be 1–2000 characters")
-                record_values = form.get("record", [])
-                if record_values not in ([], ["yes"]):
-                    raise ValueError("Invalid recording choice")
-                record = bool(record_values)
-                if not KEY:
-                    return self.respond(503, page("Mubit key unavailable; no model call made.", True))
-                if not storage_ready():
-                    return self.respond(503, page("Decision store unavailable; no model call made.", True))
-                if not PREDICT_LIMIT.acquire(blocking=False):
-                    return self.respond(429, page("Too many checks in progress", True))
-                try:
-                    verdict, req_id, latency = predict(facts, reply, record=record)
-                finally:
-                    PREDICT_LIMIT.release()
-                number = create_decision(facts, reply, verdict, req_id, latency, record)
-                log_event("decision_saved", case_id=number, request_id=req_id,
-                          latency_ms=latency, recording_requested=record)
-                message = f"Saved live Mubit case #{number}: {verdict}"
-            else:
-                number = int(field("id"))
-                if not review(number, field("verdict"), field("rule"), field("reason")):
-                    raise ValueError("Case missing or already reviewed")
-                log_event("review_saved", case_id=number)
-                message = f"Saved local reviewer correction for case #{number}"
-            self.respond(200, page(message))
-        except (ValueError, UnicodeError) as exc:
-            self.respond(400, page(str(exc), True))
-        except Exception as exc:
-            # Provider errors can contain request content or URLs; do not display them.
-            request_id = getattr(exc, "request_id", None)
-            log_event("request_failed", error_type=type(exc).__name__,
-                      status_code=getattr(exc, "status_code", None),
-                      request_id=request_id if isinstance(request_id, str) and
-                      request_id.startswith("mreq_") else None)
-            self.respond(502, page("Live Mubit call failed. No decision saved.", True))
+            verdict, req_id, latency = predict(facts, reply, record=record)
+        finally:
+            PREDICT_LIMIT.release()
+        number = create_decision(facts, reply, verdict, req_id, latency, record)
+        log_event("decision_saved", case_id=number, request_id=req_id,
+                  latency_ms=latency, recording_requested=record)
+        return page(f"Saved live Mubit case #{number}: {verdict}")
+    except ValueError as exc:
+        return page(str(exc), True), 400
+    except Exception as exc:
+        request_id = getattr(exc, "request_id", None)
+        log_event("request_failed", error_type=type(exc).__name__,
+                  status_code=getattr(exc, "status_code", None),
+                  request_id=request_id if isinstance(request_id, str) and
+                  request_id.startswith("mreq_") else None)
+        return page("Live Mubit call failed. No decision saved.", True), 502
 
-    def log_message(self, *_):
-        pass
+
+@app.post("/review")
+def submit_review():
+    try:
+        failure = validate_form()
+        if failure:
+            return failure
+        number = int(form_field("id"))
+        if not review(number, form_field("verdict"), form_field("rule"), form_field("reason")):
+            raise ValueError("Case missing or already reviewed")
+        log_event("review_saved", case_id=number)
+        return page(f"Saved local reviewer correction for case #{number}")
+    except ValueError as exc:
+        return page(str(exc), True), 400
+    except Exception as exc:
+        log_event("review_failed", error_type=type(exc).__name__)
+        return page("Review store unavailable.", True), 503
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     validate_config()
     database().close()
-    print(f"Canopy: http://{HOST}:{PORT} · {'Mubit key set' if KEY else 'Mubit key missing'}")
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    os.execvp("gunicorn", ["gunicorn", "--bind", f"{HOST}:{PORT}", "--workers", "1",
+                          "--threads", "8", "--timeout", "45", "canopy:app"])

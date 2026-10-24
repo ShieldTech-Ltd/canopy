@@ -26,13 +26,15 @@ python canopy.py
 
 Open http://127.0.0.1:8080 and enter user `operator` with `CANOPY_OPERATOR_TOKEN` as the password. Use only fictional or approved test data. Generate a token with `python -c 'import secrets; print(secrets.token_urlsafe(48))'` and keep it out of source and screenshots. The database is `canopy.sqlite3` unless `CANOPY_DB_PATH` is set. The optional `MUBIT_MODEL` selects a provider model available to the key; the default is `gpt-4.1-mini`. A key alone does not prove model access, feedback access, or training.
 
+`python canopy.py` validates the configuration and starts Gunicorn with one worker and eight threads. This keeps the in-memory form token and call-concurrency limit consistent within the instance. Use one app instance per SQLite database; multiple replicas require shared auth/session state, a different database, and a global rate limit.
+
 `CANOPY_POLICY_PATH` can point to an operator-reviewed JSON policy with a nonempty `version` and 1–30 rules, each with a unique `id` and `text`. The app validates the file at startup and records its hash on each decision. Restart to load a new version. Existing decisions retain their version and hash, but the old policy text must also be retained outside the app for a complete audit. The bundled evaluation labels apply only to the exact bundled sample policy.
 
 For a disposable local UI check without credentials, run `CANOPY_DEMO_MODE=1 python canopy.py`. Demo mode refuses a non-local public origin. Live checks stay unavailable without a Mubit key.
 
 ## Single-operator deployment
 
-The service is designed to run behind a TLS reverse proxy. Basic credentials are safe only over HTTPS outside localhost. Set a 32+ character operator token, `MUBIT_API_KEY`, and `CANOPY_PUBLIC_ORIGIN=https://your-host`. The proxy must pass the original `Host` header and should bind the app's published port to loopback or a private network. Never expose the container's plain HTTP port directly to the internet. The app rejects non-local public origins without HTTPS and rejects non-local binding in demo mode.
+The Gunicorn service is designed to run behind a TLS reverse proxy. Basic credentials are safe only over HTTPS outside localhost. Set a 32+ character operator token, `MUBIT_API_KEY`, and `CANOPY_PUBLIC_ORIGIN=https://your-host`. The proxy must pass the original `Host` header and should bind the app's published port to loopback or a private network. Never expose the container's plain HTTP port directly to the internet. The app rejects non-local public origins without HTTPS and rejects non-local binding in demo mode.
 
 ```bash
 docker build -t canopy:local .
