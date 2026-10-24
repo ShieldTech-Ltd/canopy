@@ -1,675 +1,218 @@
-"""
-Canopy — Mubit Hackathon Night Shift 2026
-Autonomous claim verification using Mubit + Banyan Sapling.
-Handles SUPPORTED, VIOLATES, and INSUFFICIENT intelligently.
+"""Canopy: a reviewable support-policy checker routed through Mubit."""
 
-Run:  python canopy.py
-Open: http://localhost:8080
-"""
-
+import html
 import json
 import os
+import secrets
+import sqlite3
 import time
-import random
-import threading
-import urllib.request
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from datetime import datetime
+from contextlib import closing
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Lock
+from urllib.parse import parse_qs
 
-# Load .env
-_env = os.path.join(os.path.dirname(__file__), ".env")
-if os.path.exists(_env):
-    for _line in open(_env):
-        _line = _line.strip()
-        if _line and not _line.startswith("#") and "=" in _line:
-            _k, _v = _line.split("=", 1)
-            os.environ.setdefault(_k.strip(), _v.strip())
-
-# ── Config ──────────────────────────────────────────────────────────────────
-MUBIT_KEY      = os.environ.get("MUBIT_API_KEY", "")
-MUBIT_BASE_URL = "https://api.mubit.ai/openai/v1"
-MODEL          = "gpt-4.1-mini"          # swap to "banyan-sapling" when granted
-USE_REAL_API   = bool(MUBIT_KEY)
-PORT           = 8080
-TICK_SECONDS   = 2.0
-# ────────────────────────────────────────────────────────────────────────────
-
-CLAIMS = [
-    {
-        "policy":  "Python language specification",
-        "evidence":"Python executes source code via an interpreter at runtime",
-        "claim":   "Python is a compiled language like C++",
-        "truth":   "VIOLATES",
-        "extra":   "CPython docs: source compiled to bytecode then interpreted — not compiled to machine code",
-    },
-    {
-        "policy":  "Water chemistry",
-        "evidence":"H2O consists of two hydrogen atoms bonded to one oxygen atom",
-        "claim":   "Water boils at 100 degrees Celsius at sea level",
-        "truth":   "SUPPORTED",
-        "extra":   "NIST: boiling point of water at 101.325 kPa is 99.97 C",
-    },
-    {
-        "policy":  "LLM architecture",
-        "evidence":"Transformers process a fixed-length context window per inference call",
-        "claim":   "LLMs have perfect long-term memory across all sessions",
-        "truth":   "VIOLATES",
-        "extra":   "OpenAI docs: no persistent state between API calls; context window is the only memory",
-    },
-    {
-        "policy":  "Mubit platform documentation",
-        "evidence":"Mubit intercepts API calls and trains task-specific adapters via one URL change",
-        "claim":   "Using Mubit requires rewriting your entire AI stack",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit quickstart: replace base URL only; models, tools, orchestration unchanged",
-    },
-    {
-        "policy":  "LoRA fine-tuning architecture",
-        "evidence":"LoRA adapters are additive weight matrices that sit on top of frozen base weights",
-        "claim":   "Fine-tuning permanently changes the base model weights",
-        "truth":   "VIOLATES",
-        "extra":   "LoRA paper 2021: base model weights frozen throughout; only adapter params updated",
-    },
-    {
-        "policy":  "Coffee chemistry",
-        "evidence":"Coffea arabica beans synthesise caffeine as a natural insect deterrent",
-        "claim":   "Coffee contains caffeine",
-        "truth":   "SUPPORTED",
-        "extra":   "USDA: a standard 240ml cup of brewed coffee contains 80-100mg caffeine",
-    },
-    {
-        "policy":  "API rate limiting standards",
-        "evidence":"HTTP 429 Too Many Requests indicates a rate limit has been exceeded",
-        "claim":   "Production APIs have no rate limits if you pay a premium tier",
-        "truth":   "VIOLATES",
-        "extra":   "OpenAI, Anthropic, Google all publish rate limits at every pricing tier",
-    },
-    {
-        "policy":  "Heliocentric astronomy",
-        "evidence":"Kepler orbital mechanics and stellar parallax confirm Earth orbits the Sun",
-        "claim":   "The Earth orbits the Sun",
-        "truth":   "SUPPORTED",
-        "extra":   "NASA: Earth completes one full orbit every 365.25 days at mean distance 149.6M km",
-    },
-    {
-        "policy":  "Active learning theory",
-        "evidence":"Human feedback on model outputs is the foundation of RLHF",
-        "claim":   "Sending corrections to a model always makes it perform worse",
-        "truth":   "VIOLATES",
-        "extra":   "InstructGPT paper: RLHF with human feedback consistently improves alignment",
-    },
-    {
-        "policy":  "Open source licensing",
-        "evidence":"MIT and Apache 2.0 are OSI-approved licences permitting commercial use",
-        "claim":   "Open source software cannot be used in commercial products",
-        "truth":   "VIOLATES",
-        "extra":   "OSI definition clause 6: no discrimination against fields of endeavour including commerce",
-    },
-    {
-        "policy":  "Banyan Sapling model specification",
-        "evidence":"Banyan Sapling accepts policy, evidence, and claim; returns three-way verdict",
-        "claim":   "Banyan Sapling can only return binary true or false verdicts",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit launch: INSUFFICIENT response breaks the turn-based evidence loop",
-    },
-    {
-        "policy":  "Edge computing hardware constraints",
-        "evidence":"Raspberry Pi 4 has a maximum of 8GB LPDDR4 RAM",
-        "claim":   "A Raspberry Pi can run a 70 billion parameter LLM at inference speed",
-        "truth":   "VIOLATES",
-        "extra":   "LLaMA 70B at fp16 requires approximately 140GB RAM; far exceeds Pi capacity",
-    },
-    {
-        "policy":  "Adapter versioning in Mubit",
-        "evidence":"Mubit maintains a version history for each task-specific adapter",
-        "claim":   "A bad adapter update cannot be undone once deployed",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit docs: adapters are versioned and reversible; rollback available at any time",
-    },
-    {
-        "policy":  "Verified outcome requirement",
-        "evidence":"Mubit docs state: an agent saying it succeeded is not enough",
-        "claim":   "Mubit can train adapters purely from agent self-reports with no external verification",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit integration guide: outcome must come from a test, check, or human review",
-    },
-    {
-        "policy":  "Gravitational physics",
-        "evidence":"Newton's law of gravitation: F = Gm1m2/r^2",
-        "claim":   "Objects of different masses fall at the same rate in a vacuum",
-        "truth":   "SUPPORTED",
-        "extra":   "Galileo's experiment and Apollo 15 feather-hammer drop both confirmed equivalence",
-    },
-    {
-        "policy":  "GDPR data protection regulation",
-        "evidence":"GDPR Article 17 grants individuals the right to erasure of personal data",
-        "claim":   "Companies can store user data indefinitely without legal consequence under GDPR",
-        "truth":   "VIOLATES",
-        "extra":   "ICO guidance: personal data must not be kept longer than necessary for its purpose",
-    },
-    {
-        "policy":  "Antibiotic pharmacology",
-        "evidence":"Antibiotics target bacterial cell walls, ribosomes, or DNA replication mechanisms",
-        "claim":   "Antibiotics are effective treatments for viral infections like the common cold",
-        "truth":   "VIOLATES",
-        "extra":   "WHO: antibiotics have no effect on viruses; overuse drives antimicrobial resistance",
-    },
-    {
-        "policy":  "Compound interest mathematics",
-        "evidence":"Compound interest formula: A = P(1 + r/n)^(nt)",
-        "claim":   "Compound interest grows faster than simple interest over long periods",
-        "truth":   "SUPPORTED",
-        "extra":   "At 5% over 30 years: simple interest yields 150%, compound interest yields 332%",
-    },
-    {
-        "policy":  "Carbon emissions and climate science",
-        "evidence":"IPCC reports: CO2 concentration has risen from 280ppm pre-industrial to 420ppm today",
-        "claim":   "Human activity has had no measurable effect on atmospheric CO2 levels",
-        "truth":   "VIOLATES",
-        "extra":   "NASA: 97% of actively publishing climate scientists agree on human-caused warming",
-    },
-    {
-        "policy":  "UK employment law",
-        "evidence":"UK Employment Rights Act 1996 requires minimum notice periods for dismissal",
-        "claim":   "An employer in the UK can dismiss an employee with no notice at any time",
-        "truth":   "VIOLATES",
-        "extra":   "ACAS: employees with 1+ month service are entitled to at least 1 week statutory notice",
-    },
-    {
-        "policy":  "Transformer neural network architecture",
-        "evidence":"The attention mechanism in transformers scales quadratically with sequence length",
-        "claim":   "Transformer models process all tokens in a sequence in parallel during training",
-        "truth":   "SUPPORTED",
-        "extra":   "Vaswani et al 2017: parallelisation is a key advantage of transformers over RNNs",
-    },
-    {
-        "policy":  "Blockchain immutability",
-        "evidence":"Each block in a blockchain contains a cryptographic hash of the previous block",
-        "claim":   "Data stored on a public blockchain can be easily edited after confirmation",
-        "truth":   "VIOLATES",
-        "extra":   "Bitcoin whitepaper: altering a block requires redoing proof-of-work for all subsequent blocks",
-    },
-    {
-        "policy":  "Human sleep physiology",
-        "evidence":"National Sleep Foundation recommends 7-9 hours sleep per night for adults",
-        "claim":   "Adults can function optimally on 4 hours of sleep per night long term",
-        "truth":   "VIOLATES",
-        "extra":   "Matthew Walker Sleep research: chronic sleep deprivation impairs cognition, immunity, and longevity",
-    },
-    {
-        "policy":  "IPv4 address space",
-        "evidence":"IPv4 uses 32-bit addresses providing approximately 4.3 billion unique addresses",
-        "claim":   "The internet has run out of new IPv4 addresses",
-        "truth":   "SUPPORTED",
-        "extra":   "IANA exhausted its IPv4 pool in February 2011; regional registries followed by 2019",
-    },
-    {
-        "policy":  "Moore's law semiconductor scaling",
-        "evidence":"Transistor counts on chips doubled approximately every two years from 1965 to 2015",
-        "claim":   "Moore's law has continued at the same pace through 2025 with no slowdown",
-        "truth":   "VIOLATES",
-        "extra":   "TSMC and Intel both report physical limits are slowing traditional transistor density scaling",
-    },
-]
-
-# ── Shared state ─────────────────────────────────────────────────────────────
-state = {
-    "total":          0,
-    "correct":        0,
-    "corrections":    0,
-    "insufficient":   0,
-    "resolved":       0,
-    "version":        1,
-    "accuracy":       0.0,
-    "v1_accuracy":    None,
-    "decisions":      [],
-    "insuff_log":     [],
-    "log":            [],
-    "running":        False,
-    "api_status":     "connecting" if USE_REAL_API else "simulation",
-}
-
-# ── Mubit calls ───────────────────────────────────────────────────────────────
-
-def call_mubit(policy, evidence, claim):
-    if USE_REAL_API:
-        from openai import OpenAI
-        client = OpenAI(api_key=MUBIT_KEY, base_url=MUBIT_BASE_URL)
-        resp = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You verify claims against policy and evidence. "
-                        "Reply with exactly one word: SUPPORTED, VIOLATES, or INSUFFICIENT. "
-                        "Use INSUFFICIENT only when the evidence lacks enough detail to be certain."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"Policy: {policy}\nEvidence: {evidence}\nClaim: {claim}",
-                },
-            ],
-            max_tokens=10,
-        )
-        state["api_status"] = "live"
-        return resp.choices[0].message.content.strip().upper().split()[0]
-    else:
-        time.sleep(0.3)
-        return _simulate(claim)
+ROOT = Path(__file__).resolve().parent
+POLICY = json.loads((ROOT / "sample_policy.json").read_text())
+DB_PATH = Path(os.getenv("CANOPY_DB_PATH", ROOT / "canopy.sqlite3"))
+HOST, PORT = "127.0.0.1", int(os.getenv("CANOPY_PORT", "8080"))
+MODEL, KEY = os.getenv("MUBIT_MODEL", "gpt-4.1-mini"), os.getenv("MUBIT_API_KEY", "")
+TOKEN, LOCK = secrets.token_urlsafe(32), Lock()
+VERDICTS = {"SUPPORTED", "VIOLATES", "INSUFFICIENT"}
+MAX_FIELD = 2000
 
 
-def _simulate(claim):
-    truth = next((c["truth"] for c in CLAIMS if c["claim"] == claim), "SUPPORTED")
-    if random.random() < 0.14:
-        return "INSUFFICIENT"
-    accuracy = min(0.42 + state["version"] * 0.07, 0.94)
-    if random.random() < accuracy:
-        return truth
-    return "VIOLATES" if truth == "SUPPORTED" else "SUPPORTED"
+def database():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(DB_PATH, timeout=5)
+    db.row_factory = sqlite3.Row
+    db.execute("""CREATE TABLE IF NOT EXISTS decisions (
+        id INTEGER PRIMARY KEY, created_at TEXT NOT NULL, policy_version TEXT NOT NULL,
+        facts TEXT NOT NULL, reply TEXT NOT NULL, prediction TEXT NOT NULL,
+        request_id TEXT, latency_ms INTEGER, review_verdict TEXT, review_rule TEXT,
+        rationale TEXT, reviewed_at TEXT, feedback_status TEXT NOT NULL DEFAULT 'not_submitted'
+    )""")
+    db.commit()
+    return db
 
 
-def send_correction(claim_obj, predicted, correct):
-    if not USE_REAL_API:
-        time.sleep(0.1)
-        return "simulated"
-    payload = json.dumps({
-        "model":          MODEL,
-        "input":          f"Policy: {claim_obj['policy']}\nEvidence: {claim_obj['evidence']}\nClaim: {claim_obj['claim']}",
-        "predicted":      predicted,
-        "correct_output": correct,
-    }).encode()
-    for ep in ["/outcomes", "/feedback"]:
-        try:
-            req = urllib.request.Request(
-                MUBIT_BASE_URL + ep,
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {MUBIT_KEY}",
-                    "Content-Type":  "application/json",
-                },
-                method="POST",
-            )
-            urllib.request.urlopen(req, timeout=5)
-            return f"sent to {ep}"
-        except urllib.error.HTTPError as e:
-            if e.code == 403:
-                return "queued (upgrade needed for correction endpoint)"
-        except Exception:
-            pass
-    return "failed"
-
-
-def fetch_extra_evidence(claim_obj):
-    if not USE_REAL_API:
-        time.sleep(0.4)
-        return claim_obj["extra"]
-    try:
-        words  = claim_obj["claim"].split()[:4]
-        query  = "_".join(words)
-        url    = f"https://en.wikipedia.org/api/rest_v1/page/summary/{query}"
-        req    = urllib.request.Request(url, headers={"User-Agent": "Canopy/1.0"})
-        resp   = urllib.request.urlopen(req, timeout=4)
-        data   = json.loads(resp.read())
-        text   = data.get("extract", "")
-        return (text[:280] + "...") if len(text) > 280 else (text or claim_obj["extra"])
-    except Exception:
-        return claim_obj["extra"]
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _now():
-    return datetime.now().strftime("%H:%M:%S")
-
-
-def _log(text, kind="ok"):
-    state["log"].insert(0, {"text": text, "kind": kind, "ts": _now()})
-    state["log"] = state["log"][:50]
-
-# ── Agent loop ────────────────────────────────────────────────────────────────
-
-def run_agent():
-    state["running"] = True
-    pool = CLAIMS * 8
-    random.shuffle(pool)
-
-    for claim_obj in pool:
-        if not state["running"]:
-            break
-
-        try:
-            verdict = call_mubit(
-                claim_obj["policy"],
-                claim_obj["evidence"],
-                claim_obj["claim"],
-            )
-        except Exception as exc:
-            _log(f"[API ERROR] {exc}", "error")
-            time.sleep(3)
-            continue
-
-        state["total"] += 1
-
-        if state["v1_accuracy"] is None and state["total"] >= 10:
-            state["v1_accuracy"] = state["accuracy"]
-
-        if verdict == "INSUFFICIENT":
-            state["insufficient"] += 1
-            short = claim_obj["claim"][:48]
-            _log(f"[INSUFFICIENT] \"{short}...\" — fetching extra evidence", "warn")
-            extra   = fetch_extra_evidence(claim_obj)
-            verdict = call_mubit(
-                claim_obj["policy"],
-                claim_obj["evidence"] + " | Extra: " + extra,
-                claim_obj["claim"],
-            )
-            state["resolved"] += 1
-            state["insuff_log"].insert(0, {
-                "claim":    short + "...",
-                "extra":    extra[:80] + "...",
-                "resolved": verdict,
-                "ts":       _now(),
-            })
-            state["insuff_log"] = state["insuff_log"][:6]
-            _log(f"[RESOLVED] Re-submitted with evidence → {verdict}", "resolved")
-
-        truth   = claim_obj["truth"]
-        correct = verdict == truth
-
-        if correct:
-            state["correct"] += 1
-        else:
-            state["corrections"] += 1
-            result = send_correction(claim_obj, verdict, truth)
-            _log(
-                f"[CORRECTION] Predicted {verdict}, truth {truth} "
-                f"| record_outcome() {result}",
-                "corr",
-            )
-            if state["corrections"] % 3 == 0:
-                state["version"] += 1
-                _log(f"[MUBIT] Adapter trained → Model v{state['version']} promoted", "upd")
-
-        state["accuracy"] = round(state["correct"] / state["total"] * 100, 1)
-
-        state["decisions"].insert(0, {
-            "id":      state["total"],
-            "claim":   claim_obj["claim"][:50] + ("..." if len(claim_obj["claim"]) > 50 else ""),
-            "verdict": verdict,
-            "truth":   truth,
-            "correct": correct,
-            "ver":     f"v{state['version']}",
-            "ts":      _now(),
-        })
-        state["decisions"] = state["decisions"][:20]
-
-        if correct:
-            _log(f"[OK] \"{claim_obj['claim'][:48]}\" → {verdict}", "ok")
-
-        time.sleep(TICK_SECONDS)
-
-    state["running"] = False
-
-# ── Dashboard ─────────────────────────────────────────────────────────────────
-
-def _rows():
-    out = ""
-    for r in state["decisions"]:
-        c  = "ok" if r["correct"] else "bad"
-        sy = "✓" if r["correct"] else "✗"
-        out += (
-            f"<tr>"
-            f"<td class='dim'>{r['id']}</td>"
-            f"<td>{r['claim']}</td>"
-            f"<td class='{c}'>{r['verdict']}</td>"
-            f"<td class='dim'>{r['truth']}</td>"
-            f"<td class='{c}'>{sy}</td>"
-            f"<td class='ver'>{r['ver']}</td>"
-            f"<td class='dim'>{r['ts']}</td>"
-            f"</tr>"
-        )
-    return out or "<tr><td colspan='7' class='dim'>Starting agent...</td></tr>"
-
-
-def _insuff_rows():
-    out = ""
-    for r in state["insuff_log"]:
-        out += (
-            f"<tr>"
-            f"<td class='warn'>{r['ts']}</td>"
-            f"<td>{r['claim']}</td>"
-            f"<td class='dim'>{r['extra']}</td>"
-            f"<td class='ok'>{r['resolved']}</td>"
-            f"</tr>"
-        )
-    return out or "<tr><td colspan='4' class='dim'>No INSUFFICIENT cases yet...</td></tr>"
-
-
-def _log_html():
-    out = ""
-    for l in state["log"]:
-        out += f"<div class='{l['kind']}'><span class='ts'>{l['ts']}</span> {l['text']}</div>"
-    return out or "<div class='dim'>Initialising...</div>"
-
-
-def _improvement():
-    v1  = state["v1_accuracy"]
-    now = state["accuracy"]
-    if v1 is None:
-        return "<span class='dim'>Calculating baseline...</span>"
-    diff = round(now - v1, 1)
-    sign = "+" if diff >= 0 else ""
-    col  = "ok" if diff >= 0 else "bad"
+def prompt():
+    rules = "\n".join(f"{r['id']}: {r['text']}" for r in POLICY["rules"])
     return (
-        f"<span class='dim'>v1 baseline</span> <strong>{v1}%</strong>"
-        f" &nbsp;→&nbsp; "
-        f"<span class='dim'>now</span> <strong>{now}%</strong>"
-        f" &nbsp;<span class='{col}'>{sign}{diff}%</span>"
+        "Check a drafted customer support reply using ONLY the policy and customer facts. "
+        "Return exactly one token: SUPPORTED, VIOLATES, or INSUFFICIENT. "
+        "SUPPORTED: all factual policy claims follow from rules and known facts. "
+        "VIOLATES: a claim contradicts a rule or known fact. "
+        "INSUFFICIENT: a required fact is missing and neither other verdict is justified. "
+        "Do not invent facts.\n"
+        f"Policy version: {POLICY['version']}\n{rules}"
     )
 
 
-DASHBOARD = """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Canopy — Mubit</title>
-<meta http-equiv="refresh" content="2">
-<style>
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{background:#080810;color:#d0d0d8;font-family:'Courier New',monospace;padding:28px;min-height:100vh}}
-
-header{{display:flex;align-items:baseline;gap:20px;margin-bottom:6px}}
-h1{{font-size:32px;letter-spacing:4px;color:#7fffd4;font-weight:bold}}
-.model-badge{{font-size:11px;color:#555;letter-spacing:2px;border:1px solid #222;
-              padding:3px 10px;border-radius:20px}}
-.tagline{{color:#444;font-size:12px;margin-bottom:20px;letter-spacing:1px}}
-
-.api-status{{display:inline-flex;align-items:center;gap:6px;font-size:11px;
-             color:#7fffd4;margin-bottom:24px}}
-.api-status.sim{{color:#ffb347}}
-.dot{{width:7px;height:7px;border-radius:50%;background:currentColor;
-      animation:pulse 1.4s infinite}}
-@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.25}}}}
-
-.stats{{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px}}
-.stat{{background:#0e0e18;border:1px solid #1a1a2e;border-radius:10px;padding:16px 14px}}
-.stat .n{{font-size:32px;font-weight:bold;color:#7fffd4;line-height:1}}
-.stat .l{{font-size:10px;color:#444;margin-top:6px;text-transform:uppercase;letter-spacing:1px}}
-.stat.red .n{{color:#ff6b6b}}
-.stat.amber .n{{color:#ffb347}}
-.stat.purple .n{{color:#a78bfa}}
-
-.progress-row{{display:flex;align-items:center;gap:14px;margin-bottom:24px}}
-.track{{background:#0e0e18;border-radius:6px;height:10px;flex:1;max-width:400px}}
-.fill{{background:linear-gradient(90deg,#4ecdc4,#7fffd4);height:10px;border-radius:6px;
-       transition:width 1s ease}}
-.pct{{font-size:20px;font-weight:bold;color:#7fffd4}}
-.improvement{{font-size:12px;color:#444}}
-
-.grid{{display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:20px}}
-.panel{{background:#0e0e18;border:1px solid #1a1a2e;border-radius:10px;padding:18px}}
-.panel-title{{font-size:10px;text-transform:uppercase;letter-spacing:2px;
-              color:#444;margin-bottom:14px}}
-
-table{{width:100%;border-collapse:collapse;font-size:12px}}
-th{{text-align:left;color:#333;border-bottom:1px solid #1a1a2e;
-    padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:1px}}
-td{{padding:7px 8px;border-bottom:1px solid #111;vertical-align:top}}
-.ok{{color:#7fffd4}}
-.bad{{color:#ff6b6b}}
-.warn{{color:#ffb347}}
-.resolved{{color:#a78bfa}}
-.dim{{color:#444}}
-.ver{{color:#555}}
-.ts{{color:#2a2a3a;margin-right:6px}}
-
-.log-box{{background:#060610;border:1px solid #111;border-radius:8px;
-          padding:14px;height:220px;overflow-y:auto;font-size:11px;margin-bottom:20px}}
-.log-box .ok{{color:#3a5a3a;display:block;padding:2px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .corr{{color:#ff6b6b;display:block;padding:2px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .upd{{color:#7fffd4;font-weight:bold;display:block;padding:2px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .warn{{color:#ffb347;display:block;padding:2px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .resolved{{color:#a78bfa;display:block;padding:2px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .error{{color:#ff4444;display:block;padding:2px 0;border-bottom:1px solid #0d0d1a}}
-.log-box .dim{{color:#222;display:block}}
-
-footer{{font-size:10px;color:#222;letter-spacing:1px}}
-</style>
-</head>
-<body>
-
-<header>
-  <h1>CANOPY</h1>
-  <span class="model-badge">via MUBIT / {model}</span>
-</header>
-<div class="tagline">AUTONOMOUS CLAIM VERIFICATION &nbsp;·&nbsp; NIGHT SHIFT 2026 &nbsp;·&nbsp; CANARY WHARF</div>
-
-<div class="api-status {api_cls}">
-  <span class="dot"></span>
-  {api_label}
-</div>
-
-<div class="stats">
-  <div class="stat">
-    <div class="n">{accuracy}%</div>
-    <div class="l">Accuracy</div>
-  </div>
-  <div class="stat">
-    <div class="n">{total}</div>
-    <div class="l">Decisions</div>
-  </div>
-  <div class="stat red">
-    <div class="n">{corrections}</div>
-    <div class="l">Corrections sent</div>
-  </div>
-  <div class="stat amber">
-    <div class="n">{insufficient}</div>
-    <div class="l">INSUFFICIENT caught</div>
-  </div>
-  <div class="stat amber">
-    <div class="n">{resolved}</div>
-    <div class="l">Resolved</div>
-  </div>
-  <div class="stat purple">
-    <div class="n">v{version}</div>
-    <div class="l">Model version</div>
-  </div>
-</div>
-
-<div class="progress-row">
-  <span class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:1px">Accuracy</span>
-  <div class="track"><div class="fill" style="width:{accuracy}%"></div></div>
-  <span class="pct">{accuracy}%</span>
-  <span class="improvement">{improvement}</span>
-</div>
-
-<div class="grid">
-  <div class="panel">
-    <div class="panel-title">Live decisions</div>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th><th>Claim</th><th>Verdict</th><th>Truth</th>
-          <th>OK</th><th>Model</th><th>Time</th>
-        </tr>
-      </thead>
-      <tbody>{rows}</tbody>
-    </table>
-  </div>
-  <div class="panel">
-    <div class="panel-title">INSUFFICIENT resolution log</div>
-    <table>
-      <thead>
-        <tr><th>Time</th><th>Claim</th><th>Extra evidence</th><th>Resolved</th></tr>
-      </thead>
-      <tbody>{insuff_rows}</tbody>
-    </table>
-  </div>
-</div>
-
-<div class="log-box">{log_html}</div>
-
-<footer>
-  AUTO-REFRESH 2s &nbsp;·&nbsp;
-  REPO: github.com/ShieldTech-Ltd/canopy &nbsp;·&nbsp;
-  {api_footer}
-</footer>
-
-</body>
-</html>"""
+def predict(facts, reply):
+    if not KEY:
+        raise RuntimeError("MUBIT_API_KEY missing")
+    from openai import OpenAI
+    client = OpenAI(api_key=KEY, base_url="https://api.mubit.ai/openai/v1",
+                    timeout=15, max_retries=1)
+    start = time.monotonic()
+    raw = client.chat.completions.with_raw_response.create(
+        model=MODEL, temperature=0, max_tokens=12,
+        messages=[{"role": "system", "content": prompt()},
+                  {"role": "user", "content": f"Customer facts: {facts}\nDraft reply: {reply}"}])
+    result = (raw.parse().choices[0].message.content or "").strip().upper()
+    if result not in VERDICTS:
+        raise ValueError("Invalid model verdict")
+    return result, raw.headers.get("x-middleware-request-id"), round((time.monotonic()-start)*1000)
 
 
-def build_page():
-    live     = USE_REAL_API
-    api_cls  = "live" if live else "sim"
-    api_label = f"LIVE — Mubit API / {MODEL}" if live else "SIMULATION MODE — set MUBIT_API_KEY to go live"
-    api_footer = f"MODEL: {MODEL} via Mubit" if live else "Swap USE_REAL_API = True + Mubit key to go live"
-    return DASHBOARD.format(
-        model        = MODEL,
-        accuracy     = state["accuracy"],
-        total        = state["total"],
-        corrections  = state["corrections"],
-        insufficient = state["insufficient"],
-        resolved     = state["resolved"],
-        version      = state["version"],
-        improvement  = _improvement(),
-        rows         = _rows(),
-        insuff_rows  = _insuff_rows(),
-        log_html     = _log_html(),
-        api_cls      = api_cls,
-        api_label    = api_label,
-        api_footer   = api_footer,
-    )
+def create_decision(facts, reply, prediction, request_id, latency_ms):
+    with LOCK:
+        with closing(database()) as db:
+            row = db.execute(
+                """INSERT INTO decisions(created_at,policy_version,facts,reply,prediction,request_id,latency_ms)
+                   VALUES(?,?,?,?,?,?,?)""",
+                (datetime.now(timezone.utc).isoformat(timespec="seconds"), POLICY["version"],
+                 facts, reply, prediction, request_id, latency_ms))
+            db.commit()
+            return row.lastrowid
+
+
+def review(decision_id, verdict, rule_id, rationale):
+    if verdict not in VERDICTS or rule_id not in {r["id"] for r in POLICY["rules"]}:
+        raise ValueError("Invalid verdict or policy rule")
+    if not rationale.strip() or len(rationale) > MAX_FIELD:
+        raise ValueError("A short rationale is required")
+    with LOCK:
+        with closing(database()) as db:
+            row = db.execute(
+                """UPDATE decisions SET review_verdict=?, review_rule=?, rationale=?,
+                   reviewed_at=?, feedback_status='local_only'
+                   WHERE id=? AND review_verdict IS NULL""",
+                (verdict, rule_id, rationale.strip(),
+                 datetime.now(timezone.utc).isoformat(timespec="seconds"), decision_id))
+            db.commit()
+            return row.rowcount == 1
+
+
+def recent():
+    with LOCK:
+        with closing(database()) as db:
+            return db.execute("SELECT * FROM decisions ORDER BY id DESC LIMIT 20").fetchall()
+
+
+def e(value):
+    return html.escape(str(value if value is not None else ""), quote=True)
+
+
+def page(message="", error=False):
+    rules = "".join(f"<li><b>{e(r['id'])}</b> {e(r['text'])}</li>" for r in POLICY["rules"])
+    verdicts = "".join(f"<option>{v}</option>" for v in sorted(VERDICTS))
+    ids = "".join(f"<option>{e(r['id'])}</option>" for r in POLICY["rules"])
+    cases = []
+    for row in recent():
+        if row["review_verdict"]:
+            action = (f"<p class='good'>Reviewed as <b>{e(row['review_verdict'])}</b> "
+                      f"under {e(row['review_rule'])}: {e(row['rationale'])}</p>")
+        else:
+            action = f"""<form method="post" action="/review">
+                <input type="hidden" name="csrf" value="{TOKEN}">
+                <input type="hidden" name="id" value="{row['id']}">
+                <label>Correct verdict<select name="verdict">{verdicts}</select></label>
+                <label>Policy rule<select name="rule">{ids}</select></label>
+                <label>Reason<input name="reason" maxlength="2000" required></label>
+                <button>Save reviewer correction</button></form>"""
+        cases.append(f"""<article><h3>Case #{row['id']}</h3>
+            <p><b>Facts:</b> {e(row['facts'])}</p><p><b>Draft:</b> {e(row['reply'])}</p>
+            <p><b>Mubit verdict:</b> {e(row['prediction'])} · {e(row['latency_ms'])} ms</p>
+            <p class="muted">Request {e(row['request_id'] or 'not returned')} · {e(row['policy_version'])}</p>
+            {action}<p class="warning">Feedback: {e(row['feedback_status'])}.
+            A local correction is not a Mubit model update.</p></article>""")
+    banner = f"<p class='banner'>{e(message)}</p>" if message else ""
+    status = f"LIVE via Mubit · {e(MODEL)}" if KEY else "MUBIT KEY MISSING · live calls unavailable"
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Canopy · Support policy review</title><style>
+    :root{{font:16px/1.5 system-ui;color:#e7f5e9;background:#0c1915}}
+    body{{max-width:960px;margin:auto;padding:24px}}h1{{font-size:2.6rem;margin:0}}
+    section,article{{background:#142820;border:1px solid #3b644c;border-radius:12px;padding:20px;margin:20px 0}}
+    .muted{{color:#acc4b2}}.warning{{color:#ffd084}}.good{{color:#9bf0b3}}
+    .banner{{padding:12px;background:{'#58332d' if error else '#285439'};border-radius:8px}}
+    label{{display:block;margin:12px 0}}textarea,input,select{{box-sizing:border-box;width:100%;padding:10px;
+    background:#0c1915;color:white;border:1px solid #779581;border-radius:6px}}
+    textarea{{min-height:90px}}button{{background:#8cf1ad;border:0;border-radius:6px;padding:12px 16px;
+    color:#092015;font-weight:700;cursor:pointer}}
+    </style></head><body><header><h1>Canopy</h1><p class="muted">{status}</p></header>{banner}
+    <section><h2>Sample refund policy · {e(POLICY['version'])}</h2>
+    <p>This is a fictional demo policy. No customer account is connected.</p><ol>{rules}</ol></section>
+    <section><h2>Check a drafted reply</h2><form method="post" action="/check">
+    <input type="hidden" name="csrf" value="{TOKEN}">
+    <label>Customer facts<textarea name="facts" maxlength="2000" required
+      placeholder="Purchase: 5 days ago. Paid feature usage: none."></textarea></label>
+    <label>Draft support reply<textarea name="reply" maxlength="2000" required
+      placeholder="You qualify for a refund."></textarea></label>
+    <button>Check through Mubit</button></form></section>
+    <section><h2>Decision and correction trail</h2><p class="muted">Reviews are stored locally.
+    Mubit feedback submission awaits a confirmed event API contract.</p>
+    {''.join(cases) or '<p>No live decisions yet.</p>'}</section></body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=utf-8")
+    def respond(self, code, body):
+        data = body.encode()
+        self.send_response(code)
+        for name, value in {
+            "Content-Type": "text/html; charset=utf-8", "Content-Length": str(len(data)),
+            "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
+        }.items():
+            self.send_header(name, value)
         self.end_headers()
-        self.wfile.write(build_page().encode())
+        self.wfile.write(data)
+
+    def do_GET(self):
+        self.respond(200 if self.path == "/" else 404,
+                     page() if self.path == "/" else page("Not found", True))
+
+    def do_POST(self):
+        if self.path not in {"/check", "/review"}:
+            return self.respond(404, page("Not found", True))
+        if self.headers.get("Origin") not in {None, f"http://{HOST}:{PORT}", f"http://localhost:{PORT}"}:
+            return self.respond(403, page("Origin rejected", True))
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= 8192:
+                raise ValueError("Invalid request size")
+            form = parse_qs(self.rfile.read(size).decode(), strict_parsing=True)
+            if not secrets.compare_digest(form.get("csrf", [""])[0], TOKEN):
+                return self.respond(403, page("Review token rejected", True))
+            field = lambda name: form.get(name, [""])[0].strip()
+            if self.path == "/check":
+                facts, reply = field("facts"), field("reply")
+                if not facts or not reply or len(facts) > MAX_FIELD or len(reply) > MAX_FIELD:
+                    raise ValueError("Facts and reply must each be 1–2000 characters")
+                verdict, req_id, latency = predict(facts, reply)
+                number = create_decision(facts, reply, verdict, req_id, latency)
+                message = f"Saved live Mubit case #{number}: {verdict}"
+            else:
+                number = int(field("id"))
+                if not review(number, field("verdict"), field("rule"), field("reason")):
+                    raise ValueError("Case missing or already reviewed")
+                message = f"Saved local reviewer correction for case #{number}"
+            self.respond(200, page(message))
+        except (ValueError, UnicodeError) as exc:
+            self.respond(400, page(str(exc), True))
+        except Exception as exc:
+            # Provider errors can contain request content or URLs; do not display them.
+            print(f"Request failed: {type(exc).__name__}")
+            self.respond(502, page("Live Mubit call failed. No decision saved.", True))
 
     def log_message(self, *_):
         pass
 
 
 if __name__ == "__main__":
-    print("=" * 56)
-    print("  CANOPY — Mubit Intelligence Layer")
-    print("  Night Shift 2026 | Canary Wharf, London")
-    print("=" * 56)
-    mode = f"LIVE ({MODEL} via Mubit)" if USE_REAL_API else "SIMULATION"
-    print(f"\n  Mode:      {mode}")
-    print(f"  Dashboard: http://localhost:{PORT}")
-    print("\n  Ctrl+C to stop\n")
-
-    t = threading.Thread(target=run_agent, daemon=True)
-    t.start()
-
-    server = HTTPServer(("localhost", PORT), Handler)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        state["running"] = False
-        print("\nStopped.")
+    database().close()
+    print(f"Canopy: http://{HOST}:{PORT} · {'Mubit key set' if KEY else 'Mubit key missing'}")
+    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
