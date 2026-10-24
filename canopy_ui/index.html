@@ -10,6 +10,17 @@
     <script src="/assets/app.js" defer></script>
   </head>
   <body>
+    <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="icon-case" viewBox="0 0 24 24"><path d="M5 3.5h9l5 5V20H5zM14 3.5V9h5M8 14h8M12 10v8" /></symbol>
+      <symbol id="icon-chat" viewBox="0 0 24 24"><path d="M4 5.5h16v12H9l-5 3zM8 10h8M8 13.5h6" /></symbol>
+      <symbol id="icon-history" viewBox="0 0 24 24"><path d="M4 7h16M6 7V5h12v2M5 7l1 13h12l1-13M9 11h6" /></symbol>
+      <symbol id="icon-gateway" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c-3 3-4 6-4 9s1 6 4 9M12 3c3 3 4 6 4 9s-1 6-4 9" /></symbol>
+      <symbol id="icon-model" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 9h6v6H9zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" /></symbol>
+      <symbol id="icon-external" viewBox="0 0 24 24"><path d="M13 5h6v6M19 5l-9 9M18 14v5H5V6h5" /></symbol>
+      <symbol id="icon-version" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="13" r="2" /><path d="M6 7v10M8 5h4a6 6 0 0 1 6 6" /></symbol>
+      <symbol id="icon-trace" viewBox="0 0 24 24"><path d="M4 5h16M4 12h9M4 19h16M16 12l2 2 3-4" /></symbol>
+      <symbol id="icon-evidence" viewBox="0 0 24 24"><path d="M5 3.5h14V20H5zM8 8h8M8 12h8M8 16h5" /></symbol>
+    </svg>
     <header class="titlebar">
       <a class="wordmark" href="/" aria-label="Canopy home"
         ><img class="wordmark-icon" src="/assets/logo.svg" alt="" />canopy<span class="wordmark-dot">.</span></a
@@ -22,39 +33,45 @@
     </header>
     <div class="shell">
       <aside class="sidebar" aria-label="Case navigation">
+        <div class="sidebar-heading">Your workspace</div>
+        <p class="sidebar-hint">Start a check or a chat, then reopen it here during this session.</p>
         <button class="new-case" id="new-case">
-          New case <kbd>Ctrl K</kbd>
+          <span class="action-label"><svg class="ui-icon" aria-hidden="true"><use href="#icon-case" /></svg>New case</span><kbd>Ctrl K</kbd>
         </button>
-        <button class="new-case new-chat" id="new-chat">New chat</button>
-        <div class="section-label">CHATS <span id="chat-count">0</span></div>
-        <nav id="chat-list" aria-label="Recent chats"></nav>
-        <div class="section-label">
-          THIS SESSION <span id="case-count">0</span>
-        </div>
-        <nav id="case-list" aria-label="Recent cases">
-          <p class="nav-empty">Your checked cases will appear here.</p>
-        </nav>
+        <button class="new-case new-chat" id="new-chat"><span class="action-label"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chat" /></svg>New chat</span></button>
+        <section class="history-card" aria-label="Chat history">
+          <div class="section-label"><span class="history-label"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chat" /></svg>CHATS</span><span id="chat-count">0</span></div>
+          <nav id="chat-list" aria-label="Recent chats"></nav>
+        </section>
+        <section class="history-card history-cases" aria-label="Case history">
+          <div class="section-label">
+            <span class="history-label"><svg class="ui-icon" aria-hidden="true"><use href="#icon-history" /></svg>THIS SESSION</span><span id="case-count">0</span>
+          </div>
+          <nav id="case-list" aria-label="Recent cases">
+            <p class="nav-empty">No cases yet.</p>
+          </nav>
+        </section>
         <div class="sidebar-bottom">
-          <dl>
-            <dt>GATEWAY</dt>
-            <dd>api.mubit.ai</dd>
-            <dt>MODEL</dt>
-            <dd id="model-name">checking</dd>
+          <div class="system-heading">App details</div>
+          <dl class="system-details">
+            <div class="system-row"><dt><svg class="ui-icon" aria-hidden="true"><use href="#icon-gateway" /></svg>GATEWAY</dt><dd>api.mubit.ai</dd></div>
+            <div class="system-row"><dt><svg class="ui-icon" aria-hidden="true"><use href="#icon-model" /></svg>MODEL</dt><dd id="model-name">checking</dd></div>
           </dl>
-          <a href="https://app.mubit.ai/" target="_blank" rel="noopener"
-            >Open Mubit console ↗</a
-          >
-          <span class="build-label" id="build-label"></span>
+          <a class="console-link" href="https://app.mubit.ai/" target="_blank" rel="noopener"><svg class="ui-icon" aria-hidden="true"><use href="#icon-external" /></svg>Open Mubit console</a>
+          <div class="build-row"><svg class="ui-icon" aria-hidden="true"><use href="#icon-version" /></svg><span class="build-label" id="build-label"></span></div>
         </div>
       </aside>
       <main class="workbench">
         <div class="pane-bar">
-          <div>
+          <div class="pane-identity">
             <span class="pane-label">WORKBENCH</span
             ><span class="run-title" id="run-title">new case</span>
           </div>
+          <nav class="mode-nav" aria-label="Workspace mode">
+            <button class="mode-button" id="mode-verify" type="button" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="#icon-case" /></svg>Verify a case</button>
+            <button class="mode-button" id="mode-chat" type="button" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chat" /></svg>Chat with Canopy</button>
+          </nav>
           <div class="pane-actions">
-            <button class="text-button" id="chat-mode">Chat with Canopy</button>
             <button class="text-button" id="reset-case">New case</button>
             <button class="text-button" id="trace-toggle" aria-expanded="true">
               Hide trace
@@ -77,10 +94,6 @@
               Give me a policy, what happened, and the claim to check.<br />I
               will call Mubit and show the evidence behind the decision.
             </p>
-            <div class="welcome-flow">
-              <span>01 / supply a case</span><span>02 / inspect the run</span
-              ><span>03 / review the verdict</span>
-            </div>
             <div class="sample-block">
               <div class="section-label">START WITH A FICTIONAL CASE</div>
               <button class="sample" id="sample-refund">
@@ -90,6 +103,15 @@
                 <span>Access approval</span
                 ><span class="muted">missing evidence ↗</span>
               </button>
+            </div>
+            <div class="welcome-flow" aria-label="Verification steps">
+              <span>01 / supply a case</span><span>02 / inspect the run</span
+              ><span>03 / review the verdict</span>
+            </div>
+            <div class="verdict-guide" aria-label="Possible verdicts">
+              <div><strong class="verdict-SUPPORTED">SUPPORTED</strong><span>The supplied evidence backs the claim.</span></div>
+              <div><strong class="verdict-VIOLATES">VIOLATES</strong><span>The claim conflicts with the policy or evidence.</span></div>
+              <div><strong class="verdict-INSUFFICIENT">INSUFFICIENT</strong><span>A required fact is missing or unresolved.</span></div>
             </div>
             <p class="quiet-note">
               Every model request goes through Mubit. Human corrections are
@@ -127,22 +149,25 @@
         </form>
       </main>
       <aside class="inspector" id="inspector" aria-label="Run inspector">
-        <div class="inspector-tabs" role="tablist" aria-label="Inspect run">
+        <div class="inspector-controls">
+          <div class="inspector-heading">Inspect this run <span>Requests and source material</span></div>
+          <div class="inspector-tabs" role="tablist" aria-label="Inspect run">
           <button
             role="tab"
             id="execution-tab"
             aria-selected="true"
             aria-controls="execution-panel"
           >
-            Execution</button
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-trace" /></svg>Execution</button
           ><button
             role="tab"
             id="evidence-tab"
             aria-selected="false"
             aria-controls="evidence-panel"
           >
-            Evidence
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-evidence" /></svg>Evidence
           </button>
+          </div>
         </div>
         <section
           id="execution-panel"
