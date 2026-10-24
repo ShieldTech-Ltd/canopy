@@ -1,11 +1,14 @@
-import os
 import tempfile
 import unittest
+import sqlite3
+import json
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
 import canopy
-from cases import HOLDOUT, TRAIN
+import manage
+from cases import HOLDOUT, SAMPLE_POLICY_HASH, TRAIN
 
 
 class CanopyTests(unittest.TestCase):
@@ -19,12 +22,28 @@ class CanopyTests(unittest.TestCase):
         self.directory.cleanup()
 
     def test_dataset_is_distinct_and_separate(self):
+        self.assertEqual(canopy.POLICY_HASH, SAMPLE_POLICY_HASH)
         self.assertEqual(len(TRAIN), 40)
         self.assertEqual(len(HOLDOUT), 12)
         key = lambda c: (c["facts"], c["reply"])
         self.assertEqual(len({key(c) for c in TRAIN}), len(TRAIN))
         self.assertFalse({key(c) for c in TRAIN} & {key(c) for c in HOLDOUT})
         self.assertTrue({c["truth"] for c in HOLDOUT} == canopy.VERDICTS)
+
+    def test_policy_is_validated_and_system_instruction_stays_stable(self):
+        self.assertNotIn(canopy.POLICY["version"], canopy.prompt())
+        custom = Path(self.directory.name) / "policy.json"
+        custom.write_text(json.dumps({
+            "version": "v2", "rules": [{"id": "NEW", "text": "A new approved rule."}]
+        }))
+        self.assertEqual(canopy.load_policy(custom)["version"], "v2")
+        custom.write_text(json.dumps({
+            "version": "v2", "rules": [
+                {"id": "DUP", "text": "one"}, {"id": "DUP", "text": "two"}
+            ]
+        }))
+        with self.assertRaisesRegex(ValueError, "unique"):
+            canopy.load_policy(custom)
 
     def test_review_is_durable_single_use_and_not_submitted(self):
         number = canopy.create_decision("Purchase was 2 days ago.", "You qualify.",
@@ -54,6 +73,62 @@ class CanopyTests(unittest.TestCase):
         with patch.object(canopy, "KEY", ""):
             with self.assertRaisesRegex(RuntimeError, "MUBIT_API_KEY"):
                 canopy.predict("facts", "reply")
+
+    def test_provider_recording_opt_in_and_mubit_provenance(self):
+        calls = []
+        class Raw:
+            headers = {"x-middleware-request-id": "mreq_verified"}
+            def parse(self):
+                return SimpleNamespace(choices=[
+                    SimpleNamespace(message=SimpleNamespace(content="SUPPORTED"))
+                ])
+        class Client:
+            def __init__(self, **kwargs):
+                self.chat = SimpleNamespace(completions=SimpleNamespace(
+                    with_raw_response=SimpleNamespace(create=self.create)))
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                return Raw()
+            def __enter__(self):
+                return self
+            def __exit__(self, *_):
+                return False
+        with patch.object(canopy, "KEY", "test"), patch.dict(
+            "sys.modules", {"openai": SimpleNamespace(OpenAI=Client)}
+        ):
+            self.assertEqual(canopy.predict("facts", "reply")[1], "mreq_verified")
+            self.assertEqual(canopy.predict("facts", "reply", record=True)[1], "mreq_verified")
+        self.assertEqual(calls[0]["extra_headers"]["x-middleware-record"], "off")
+        self.assertEqual(calls[1]["extra_headers"]["x-middleware-record"], "full")
+        self.assertEqual(calls[0]["messages"][0]["content"], canopy.prompt())
+        data = json.loads(calls[0]["messages"][1]["content"])
+        self.assertEqual(data["policy"]["version"], canopy.POLICY["version"])
+        self.assertEqual(data["customer_facts"], "facts")
+
+    def test_config_rejects_unprotected_public_binding(self):
+        with patch.object(canopy, "HOST", "0.0.0.0"), patch.object(
+            canopy, "PUBLIC_ORIGIN", "http://example.com"
+        ), patch.object(canopy, "OPERATOR_TOKEN", ""), patch.object(canopy, "DEMO_MODE", False):
+            with self.assertRaises(ValueError):
+                canopy.validate_config()
+
+    def test_backup_and_retention_are_explicit(self):
+        old = canopy.create_decision("old", "reply", "SUPPORTED", "mreq_old", 12)
+        recent = canopy.create_decision("new", "reply", "SUPPORTED", "mreq_new", 12)
+        with sqlite3.connect(canopy.DB_PATH) as db:
+            db.execute("UPDATE decisions SET created_at='2020-01-01T00:00:00+00:00' WHERE id=?", (old,))
+        target = Path(self.directory.name) / "backup.sqlite3"
+        self.assertEqual(manage.backup(target), target)
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(manage.purge(30), 1)
+        self.assertEqual(len(canopy.recent()), 2)
+        self.assertEqual(manage.purge(30, apply=True), 1)
+        self.assertEqual([row["id"] for row in canopy.recent()], [recent])
+        self.assertEqual(manage.delete_case(recent), 1)
+        self.assertEqual(manage.delete_case(recent, apply=True), 1)
+        self.assertEqual(canopy.recent(), [])
+        with sqlite3.connect(target) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM decisions").fetchone()[0], 2)
 
 
 if __name__ == "__main__":

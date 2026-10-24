@@ -1,5 +1,7 @@
 """Fixed, distinct demo cases. Labels follow sample_policy.json, not model output."""
 
+SAMPLE_POLICY_HASH = "6d21c4d579ac8f385d64e0d439c3123d68b14d384455bb1ed99ea0258f15bfa6"
+
 TRAIN = []
 for days in (1, 3, 5, 8, 11, 14, 16, 18, 21, 28):
     for used in (False, True):

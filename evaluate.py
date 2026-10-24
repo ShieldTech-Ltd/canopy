@@ -5,8 +5,8 @@ import json
 import sys
 from datetime import datetime, timezone
 
-from canopy import KEY, MODEL, POLICY, predict
-from cases import HOLDOUT, TRAIN
+from canopy import KEY, MODEL, POLICY, POLICY_HASH, predict
+from cases import HOLDOUT, SAMPLE_POLICY_HASH, TRAIN
 
 
 def main():
@@ -17,11 +17,15 @@ def main():
     args = parser.parse_args()
     if not KEY:
         parser.error("MUBIT_API_KEY is required; no simulation is available")
+    if POLICY_HASH != SAMPLE_POLICY_HASH:
+        parser.error("Fixed labels apply only to the bundled sample policy")
     cases = TRAIN if args.set == "train" else HOLDOUT
     results = []
     for index, case in enumerate(cases, 1):
         try:
-            verdict, request_id, latency = predict(case["facts"], case["reply"])
+            verdict, request_id, latency = predict(
+                case["facts"], case["reply"], record=args.set == "train"
+            )
             results.append({**case, "prediction": verdict, "correct": verdict == case["truth"],
                             "request_id": request_id, "latency_ms": latency})
             print(f"{index}/{len(cases)} {verdict} / {case['truth']}", flush=True)
