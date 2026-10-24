@@ -2,6 +2,7 @@ import tempfile
 import unittest
 import sqlite3
 import json
+import shutil
 from contextlib import closing
 from types import SimpleNamespace
 from pathlib import Path
@@ -151,6 +152,12 @@ class CanopyTests(unittest.TestCase):
         self.assertEqual(canopy.recent(), [])
         with closing(sqlite3.connect(target)) as db:
             self.assertEqual(db.execute("SELECT count(*) FROM decisions").fetchone()[0], 2)
+            self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+        restored = Path(self.directory.name) / "restored.sqlite3"
+        shutil.copy2(target, restored)
+        with patch.object(canopy, "DB_PATH", restored):
+            self.assertEqual(len(canopy.recent()), 2)
+            self.assertTrue(all(row["policy_json"] for row in canopy.recent()))
 
     def test_database_rejects_readable_existing_file(self):
         canopy.DB_PATH.touch(mode=0o644)
