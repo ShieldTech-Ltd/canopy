@@ -145,7 +145,7 @@ def index():
 
 @app.get("/assets/<name>")
 def assets(name):
-    if name not in {"app.js", "style.css"}:
+    if name not in {"app.js", "style.css", "logo.svg"}:
         return jsonify(error="Not found"), 404
     return send_from_directory(ROOT / "canopy_ui", name)
 
