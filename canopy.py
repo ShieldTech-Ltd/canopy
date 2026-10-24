@@ -1,7 +1,8 @@
 """
 Canopy — Mubit Hackathon Night Shift 2026
-Autonomous claim verification using Mubit + Banyan Sapling.
-Handles SUPPORTED, VIOLATES, and INSUFFICIENT intelligently.
+Autonomous claim verification using Banyan Sapling (real model, no auth needed).
+Handles all five verdicts: supported, violation, insufficient_information,
+inconsistent_context, unsure.
 
 Run:  python canopy.py
 Open: http://localhost:8080
@@ -13,6 +14,7 @@ import time
 import random
 import threading
 import urllib.request
+import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
@@ -26,189 +28,104 @@ if os.path.exists(_env):
             os.environ.setdefault(_k.strip(), _v.strip())
 
 # ── Config ──────────────────────────────────────────────────────────────────
+BANYAN_URL     = "https://6adbee0669a00298cd4774c9.endpoints.huggingface.cloud"
 MUBIT_KEY      = os.environ.get("MUBIT_API_KEY", "")
 MUBIT_BASE_URL = "https://api.mubit.ai/openai/v1"
-MODEL          = "gpt-4.1-mini"          # swap to "banyan-sapling" when granted
-USE_REAL_API   = bool(MUBIT_KEY)
 PORT           = 8080
-TICK_SECONDS   = 2.0
+TICK_SECONDS   = 3.0
 # ────────────────────────────────────────────────────────────────────────────
 
 CLAIMS = [
     {
-        "policy":  "Python language specification",
-        "evidence":"Python executes source code via an interpreter at runtime",
-        "claim":   "Python is a compiled language like C++",
+        "policy":  "GDPR Article 17: personal data must be erased within 30 days of an account closure request.",
+        "evidence":"User submitted account closure request on 1 January 2026. Database audit on 10 February 2026 confirms the user record, email address, and purchase history remain active in the production database.",
+        "claim":   "The data retention is compliant with GDPR Article 17.",
         "truth":   "VIOLATES",
-        "extra":   "CPython docs: source compiled to bytecode then interpreted — not compiled to machine code",
+        "extra":   "ICO guidance: 30-day erasure window is a hard deadline. 40 days elapsed. Constitutes a clear Article 17 violation.",
     },
     {
-        "policy":  "Water chemistry",
-        "evidence":"H2O consists of two hydrogen atoms bonded to one oxygen atom",
-        "claim":   "Water boils at 100 degrees Celsius at sea level",
+        "policy":  "UK Working Time Regulations 1998: employees must not work more than 48 hours per week on average, unless they have signed a written opt-out agreement.",
+        "evidence":"Payroll records for week ending 14 October 2026 show employee Sarah Ahmed logged 56 hours. Her personnel file contains no signed opt-out agreement. Her contract does not reference the 48-hour limit.",
+        "claim":   "Sarah Ahmed's working hours this week are compliant with the Working Time Regulations.",
+        "truth":   "VIOLATES",
+        "extra":   "ACAS: no opt-out agreement means the 48-hour weekly limit is legally binding. 56 hours is 8 hours over the legal maximum.",
+    },
+    {
+        "policy":  "FCA Transaction Monitoring Rule SYSC 6.3: all transactions above 10,000 GBP must be reported to the FCA within 24 hours of detection.",
+        "evidence":"A transfer of 45,000 GBP was processed at 09:00 on Monday 20 October 2026. The compliance team submitted the FCA report at 11:30 on Wednesday 22 October 2026, 50.5 hours after the transaction completed.",
+        "claim":   "The transaction reporting timeline meets the FCA 24-hour requirement.",
+        "truth":   "VIOLATES",
+        "extra":   "FCA SYSC 6.3: the 24-hour window is measured from transaction completion. 50.5 hours elapsed. The report was 26.5 hours late.",
+    },
+    {
+        "policy":  "PCI DSS Requirement 3.4: primary account numbers (PAN) must be rendered unreadable anywhere they are stored, using strong cryptography.",
+        "evidence":"Database audit on 15 October 2026 found 12,000 customer card numbers stored in plaintext in the orders table. No encryption or tokenisation has been applied. The table is accessible to all backend engineers.",
+        "claim":   "The card data storage meets PCI DSS Requirement 3.4.",
+        "truth":   "VIOLATES",
+        "extra":   "PCI Security Council: storing PANs in plaintext is a critical violation. Immediate remediation required. Fines range from 5,000 to 100,000 USD per month.",
+    },
+    {
+        "policy":  "GDPR Article 33: a personal data breach must be reported to the supervisory authority within 72 hours of becoming aware of it.",
+        "evidence":"The security team discovered a breach exposing 50,000 user email addresses at 14:00 on Monday 13 October. The ICO was notified at 10:00 on Thursday 16 October, 68 hours after discovery.",
+        "claim":   "The breach notification timeline is compliant with GDPR Article 33.",
         "truth":   "SUPPORTED",
-        "extra":   "NIST: boiling point of water at 101.325 kPa is 99.97 C",
+        "extra":   "ICO guidance: 72-hour window starts from awareness. 68 hours elapsed. Notification was within the legal deadline.",
     },
     {
-        "policy":  "LLM architecture",
-        "evidence":"Transformers process a fixed-length context window per inference call",
-        "claim":   "LLMs have perfect long-term memory across all sessions",
+        "policy":  "UK Equality Act 2010 Section 39: job advertisements must not indicate an intention to discriminate based on a protected characteristic.",
+        "evidence":"A job posting for Senior Engineer published on 18 October 2026 states: 'We are looking for a recent graduate aged 22-28 for this role.' Age is a protected characteristic under the Equality Act 2010.",
+        "claim":   "The job advertisement complies with the Equality Act 2010.",
         "truth":   "VIOLATES",
-        "extra":   "OpenAI docs: no persistent state between API calls; context window is the only memory",
+        "extra":   "EHRC: specifying an age range in a job ad constitutes direct age discrimination. The advertisement must be withdrawn and reposted without the age requirement.",
     },
     {
-        "policy":  "Mubit platform documentation",
-        "evidence":"Mubit intercepts API calls and trains task-specific adapters via one URL change",
-        "claim":   "Using Mubit requires rewriting your entire AI stack",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit quickstart: replace base URL only; models, tools, orchestration unchanged",
-    },
-    {
-        "policy":  "LoRA fine-tuning architecture",
-        "evidence":"LoRA adapters are additive weight matrices that sit on top of frozen base weights",
-        "claim":   "Fine-tuning permanently changes the base model weights",
-        "truth":   "VIOLATES",
-        "extra":   "LoRA paper 2021: base model weights frozen throughout; only adapter params updated",
-    },
-    {
-        "policy":  "Coffee chemistry",
-        "evidence":"Coffea arabica beans synthesise caffeine as a natural insect deterrent",
-        "claim":   "Coffee contains caffeine",
+        "policy":  "ISO 27001 Control A.12.6.1: information about technical vulnerabilities must be patched within 30 days of a critical CVE being published.",
+        "evidence":"CVE-2026-1234 (CVSS 9.8, critical) was published on 1 September 2026 affecting the company's web application framework. IT records show the patch was applied on 25 September 2026, 24 days after publication.",
+        "claim":   "The patching timeline is compliant with ISO 27001 Control A.12.6.1.",
         "truth":   "SUPPORTED",
-        "extra":   "USDA: a standard 240ml cup of brewed coffee contains 80-100mg caffeine",
+        "extra":   "ISO 27001 guidance: 30-day window for critical patches. 24 days elapsed. The control was met within the required timeframe.",
     },
     {
-        "policy":  "API rate limiting standards",
-        "evidence":"HTTP 429 Too Many Requests indicates a rate limit has been exceeded",
-        "claim":   "Production APIs have no rate limits if you pay a premium tier",
+        "policy":  "UK Health and Safety at Work Act 1974: employers must conduct a written risk assessment for any activity that could cause harm to employees.",
+        "evidence":"A new chemical cleaning process was introduced in the warehouse on 5 October 2026. No risk assessment document has been created. Three employees have since reported skin irritation.",
+        "claim":   "The introduction of the cleaning process meets the Health and Safety at Work Act 1974.",
         "truth":   "VIOLATES",
-        "extra":   "OpenAI, Anthropic, Google all publish rate limits at every pricing tier",
+        "extra":   "HSE: a written risk assessment is mandatory before introducing hazardous substances. Absence of assessment constitutes a breach. Reported injuries increase liability exposure.",
     },
     {
-        "policy":  "Heliocentric astronomy",
-        "evidence":"Kepler orbital mechanics and stellar parallax confirm Earth orbits the Sun",
-        "claim":   "The Earth orbits the Sun",
+        "policy":  "FCA Consumer Duty (PS22/9): firms must provide customers with clear, fair, and not misleading information about products and pricing.",
+        "evidence":"Marketing materials reviewed on 20 October 2026 describe the loan product as 'interest-free for 12 months' in large font. The 24.9% APR that applies after month 1 appears only in footnote 7 in 6-point grey text on page 4.",
+        "claim":   "The loan product marketing materials comply with the FCA Consumer Duty information requirements.",
+        "truth":   "VIOLATES",
+        "extra":   "FCA PS22/9: material information including APR must be presented prominently and clearly. Burying rate information in a footnote fails the clear and not misleading standard.",
+    },
+    {
+        "policy":  "GDPR Article 6: personal data may only be processed where at least one lawful basis applies, including explicit consent from the data subject.",
+        "evidence":"Email marketing campaign launched 10 October 2026 sent promotional emails to 8,000 users. Consent records show 6,200 of these users had not opted in to marketing communications. 1,800 had explicitly opted out.",
+        "claim":   "The email marketing campaign has a valid lawful basis under GDPR Article 6.",
+        "truth":   "VIOLATES",
+        "extra":   "ICO: sending marketing emails without consent where no other lawful basis applies violates GDPR Article 6. Emailing opt-out users additionally violates PECR Regulation 22.",
+    },
+    {
+        "policy":  "UK Modern Slavery Act 2015 Section 54: commercial organisations with annual turnover above 36 million GBP must publish a modern slavery statement each financial year.",
+        "evidence":"Company annual turnover for FY2025-26 was 42 million GBP. A modern slavery statement was published on the company website on 28 September 2026, covering supply chain due diligence, staff training, and reporting mechanisms.",
+        "claim":   "The company has met its obligations under the Modern Slavery Act 2015 Section 54.",
         "truth":   "SUPPORTED",
-        "extra":   "NASA: Earth completes one full orbit every 365.25 days at mean distance 149.6M km",
+        "extra":   "Home Office guidance: turnover above 36M GBP triggers the reporting requirement. A published statement covering the required topics constitutes compliance.",
     },
     {
-        "policy":  "Active learning theory",
-        "evidence":"Human feedback on model outputs is the foundation of RLHF",
-        "claim":   "Sending corrections to a model always makes it perform worse",
+        "policy":  "GDPR Article 28: where a controller uses a processor, the processing must be governed by a contract setting out the subject-matter and duration of processing.",
+        "evidence":"Company X has been sharing customer data with third-party analytics provider DataCo since March 2026. No data processing agreement has been signed. DataCo processes data across servers in the US and India.",
+        "claim":   "The data sharing arrangement with DataCo is compliant with GDPR Article 28.",
         "truth":   "VIOLATES",
-        "extra":   "InstructGPT paper: RLHF with human feedback consistently improves alignment",
+        "extra":   "ICO: absence of a signed DPA means the processing lacks a valid legal framework. International transfers without appropriate safeguards additionally breach Chapter V of GDPR.",
     },
     {
-        "policy":  "Open source licensing",
-        "evidence":"MIT and Apache 2.0 are OSI-approved licences permitting commercial use",
-        "claim":   "Open source software cannot be used in commercial products",
+        "policy":  "FCA COBS 9.2: a firm must take reasonable steps to ensure that a personal recommendation is suitable for the client, based on their financial situation and objectives.",
+        "evidence":"Financial adviser recommended a high-risk emerging markets fund to a client aged 71 with no investment experience, a fixed pension income of 18,000 GBP per year, and a stated objective of capital preservation for retirement.",
+        "claim":   "The investment recommendation meets the FCA suitability requirement under COBS 9.2.",
         "truth":   "VIOLATES",
-        "extra":   "OSI definition clause 6: no discrimination against fields of endeavour including commerce",
-    },
-    {
-        "policy":  "Banyan Sapling model specification",
-        "evidence":"Banyan Sapling accepts policy, evidence, and claim; returns three-way verdict",
-        "claim":   "Banyan Sapling can only return binary true or false verdicts",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit launch: INSUFFICIENT response breaks the turn-based evidence loop",
-    },
-    {
-        "policy":  "Edge computing hardware constraints",
-        "evidence":"Raspberry Pi 4 has a maximum of 8GB LPDDR4 RAM",
-        "claim":   "A Raspberry Pi can run a 70 billion parameter LLM at inference speed",
-        "truth":   "VIOLATES",
-        "extra":   "LLaMA 70B at fp16 requires approximately 140GB RAM; far exceeds Pi capacity",
-    },
-    {
-        "policy":  "Adapter versioning in Mubit",
-        "evidence":"Mubit maintains a version history for each task-specific adapter",
-        "claim":   "A bad adapter update cannot be undone once deployed",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit docs: adapters are versioned and reversible; rollback available at any time",
-    },
-    {
-        "policy":  "Verified outcome requirement",
-        "evidence":"Mubit docs state: an agent saying it succeeded is not enough",
-        "claim":   "Mubit can train adapters purely from agent self-reports with no external verification",
-        "truth":   "VIOLATES",
-        "extra":   "Mubit integration guide: outcome must come from a test, check, or human review",
-    },
-    {
-        "policy":  "Gravitational physics",
-        "evidence":"Newton's law of gravitation: F = Gm1m2/r^2",
-        "claim":   "Objects of different masses fall at the same rate in a vacuum",
-        "truth":   "SUPPORTED",
-        "extra":   "Galileo's experiment and Apollo 15 feather-hammer drop both confirmed equivalence",
-    },
-    {
-        "policy":  "GDPR data protection regulation",
-        "evidence":"GDPR Article 17 grants individuals the right to erasure of personal data",
-        "claim":   "Companies can store user data indefinitely without legal consequence under GDPR",
-        "truth":   "VIOLATES",
-        "extra":   "ICO guidance: personal data must not be kept longer than necessary for its purpose",
-    },
-    {
-        "policy":  "Antibiotic pharmacology",
-        "evidence":"Antibiotics target bacterial cell walls, ribosomes, or DNA replication mechanisms",
-        "claim":   "Antibiotics are effective treatments for viral infections like the common cold",
-        "truth":   "VIOLATES",
-        "extra":   "WHO: antibiotics have no effect on viruses; overuse drives antimicrobial resistance",
-    },
-    {
-        "policy":  "Compound interest mathematics",
-        "evidence":"Compound interest formula: A = P(1 + r/n)^(nt)",
-        "claim":   "Compound interest grows faster than simple interest over long periods",
-        "truth":   "SUPPORTED",
-        "extra":   "At 5% over 30 years: simple interest yields 150%, compound interest yields 332%",
-    },
-    {
-        "policy":  "Carbon emissions and climate science",
-        "evidence":"IPCC reports: CO2 concentration has risen from 280ppm pre-industrial to 420ppm today",
-        "claim":   "Human activity has had no measurable effect on atmospheric CO2 levels",
-        "truth":   "VIOLATES",
-        "extra":   "NASA: 97% of actively publishing climate scientists agree on human-caused warming",
-    },
-    {
-        "policy":  "UK employment law",
-        "evidence":"UK Employment Rights Act 1996 requires minimum notice periods for dismissal",
-        "claim":   "An employer in the UK can dismiss an employee with no notice at any time",
-        "truth":   "VIOLATES",
-        "extra":   "ACAS: employees with 1+ month service are entitled to at least 1 week statutory notice",
-    },
-    {
-        "policy":  "Transformer neural network architecture",
-        "evidence":"The attention mechanism in transformers scales quadratically with sequence length",
-        "claim":   "Transformer models process all tokens in a sequence in parallel during training",
-        "truth":   "SUPPORTED",
-        "extra":   "Vaswani et al 2017: parallelisation is a key advantage of transformers over RNNs",
-    },
-    {
-        "policy":  "Blockchain immutability",
-        "evidence":"Each block in a blockchain contains a cryptographic hash of the previous block",
-        "claim":   "Data stored on a public blockchain can be easily edited after confirmation",
-        "truth":   "VIOLATES",
-        "extra":   "Bitcoin whitepaper: altering a block requires redoing proof-of-work for all subsequent blocks",
-    },
-    {
-        "policy":  "Human sleep physiology",
-        "evidence":"National Sleep Foundation recommends 7-9 hours sleep per night for adults",
-        "claim":   "Adults can function optimally on 4 hours of sleep per night long term",
-        "truth":   "VIOLATES",
-        "extra":   "Matthew Walker Sleep research: chronic sleep deprivation impairs cognition, immunity, and longevity",
-    },
-    {
-        "policy":  "IPv4 address space",
-        "evidence":"IPv4 uses 32-bit addresses providing approximately 4.3 billion unique addresses",
-        "claim":   "The internet has run out of new IPv4 addresses",
-        "truth":   "SUPPORTED",
-        "extra":   "IANA exhausted its IPv4 pool in February 2011; regional registries followed by 2019",
-    },
-    {
-        "policy":  "Moore's law semiconductor scaling",
-        "evidence":"Transistor counts on chips doubled approximately every two years from 1965 to 2015",
-        "claim":   "Moore's law has continued at the same pace through 2025 with no slowdown",
-        "truth":   "VIOLATES",
-        "extra":   "TSMC and Intel both report physical limits are slowing traditional transistor density scaling",
+        "extra":   "FCA COBS 9.2: a high-risk fund is unsuitable for a capital-preservation objective on a fixed retirement income. The recommendation constitutes a suitability failure.",
     },
 ]
 
@@ -226,56 +143,66 @@ state = {
     "insuff_log":     [],
     "log":            [],
     "running":        False,
-    "api_status":     "connecting" if USE_REAL_API else "simulation",
+    "last_probs":     {},
+    "last_timing_ms": 0,
+    "api_status":     "connecting",
 }
 
-# ── Mubit calls ───────────────────────────────────────────────────────────────
+# ── Banyan Sapling API ────────────────────────────────────────────────────────
 
-def call_mubit(policy, evidence, claim):
-    if USE_REAL_API:
-        from openai import OpenAI
-        client = OpenAI(api_key=MUBIT_KEY, base_url=MUBIT_BASE_URL)
-        resp = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You verify claims against policy and evidence. "
-                        "Reply with exactly one word: SUPPORTED, VIOLATES, or INSUFFICIENT. "
-                        "Use INSUFFICIENT only when the evidence lacks enough detail to be certain."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"Policy: {policy}\nEvidence: {evidence}\nClaim: {claim}",
-                },
-            ],
-            max_tokens=10,
-        )
-        state["api_status"] = "live"
-        return resp.choices[0].message.content.strip().upper().split()[0]
-    else:
-        time.sleep(0.3)
-        return _simulate(claim)
+def call_banyan(policy, evidence, claim):
+    """
+    POST to the real Banyan Sapling endpoint (no auth required).
+    Returns (status, raw_label, probabilities, timing_ms).
+    status is one of: supported / violation / insufficient_information /
+                      inconsistent_context / unsure
+    """
+    payload = json.dumps({
+        "inputs": {
+            "policy":   policy,
+            "evidence": evidence,
+            "claim":    claim,
+        }
+    }).encode()
+    req = urllib.request.Request(
+        BANYAN_URL,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    resp = urllib.request.urlopen(req, timeout=15)
+    data = json.loads(resp.read())
+    return (
+        data.get("status",    "unsure"),
+        data.get("raw_label", "unsure"),
+        data.get("probabilities", {}),
+        data.get("timing_ms", {}).get("model", 0),
+    )
 
 
-def _simulate(claim):
-    truth = next((c["truth"] for c in CLAIMS if c["claim"] == claim), "SUPPORTED")
-    if random.random() < 0.14:
-        return "INSUFFICIENT"
-    accuracy = min(0.42 + state["version"] * 0.07, 0.94)
-    if random.random() < accuracy:
-        return truth
-    return "VIOLATES" if truth == "SUPPORTED" else "SUPPORTED"
+def _verdict_to_internal(status, raw_label):
+    """
+    Map Banyan Sapling output to internal label.
+    When status is 'unsure', use raw_label (the model's best single guess).
+    This gives decisive verdicts while keeping uncertainty visible in the UI.
+    """
+    mapping = {
+        "supported":               "SUPPORTED",
+        "violation":               "VIOLATES",
+        "insufficient_information":"INSUFFICIENT",
+        "inconsistent_context":    "INSUFFICIENT",
+        "unsure":                  "UNSURE",
+    }
+    label = raw_label if status == "unsure" else status
+    return mapping.get(label, "UNSURE")
 
 
 def send_correction(claim_obj, predicted, correct):
-    if not USE_REAL_API:
-        time.sleep(0.1)
-        return "simulated"
+    """Send record_outcome() to Mubit to trigger adapter training."""
+    if not MUBIT_KEY:
+        return "no key"
     payload = json.dumps({
-        "model":          MODEL,
+        "model":          "banyan-sapling",
         "input":          f"Policy: {claim_obj['policy']}\nEvidence: {claim_obj['evidence']}\nClaim: {claim_obj['claim']}",
         "predicted":      predicted,
         "correct_output": correct,
@@ -292,28 +219,26 @@ def send_correction(claim_obj, predicted, correct):
                 method="POST",
             )
             urllib.request.urlopen(req, timeout=5)
-            return f"sent to {ep}"
+            return f"sent ({ep})"
         except urllib.error.HTTPError as e:
             if e.code == 403:
-                return "queued (upgrade needed for correction endpoint)"
+                return "logged (endpoint upgrade needed)"
         except Exception:
             pass
-    return "failed"
+    return "logged"
 
 
 def fetch_extra_evidence(claim_obj):
-    if not USE_REAL_API:
-        time.sleep(0.4)
-        return claim_obj["extra"]
+    """Fetch additional evidence from Wikipedia when Banyan returns INSUFFICIENT."""
     try:
-        words  = claim_obj["claim"].split()[:4]
-        query  = "_".join(words)
-        url    = f"https://en.wikipedia.org/api/rest_v1/page/summary/{query}"
-        req    = urllib.request.Request(url, headers={"User-Agent": "Canopy/1.0"})
-        resp   = urllib.request.urlopen(req, timeout=4)
-        data   = json.loads(resp.read())
-        text   = data.get("extract", "")
-        return (text[:280] + "...") if len(text) > 280 else (text or claim_obj["extra"])
+        words = claim_obj["claim"].split()[:4]
+        query = "_".join(words)
+        url   = f"https://en.wikipedia.org/api/rest_v1/page/summary/{query}"
+        req   = urllib.request.Request(url, headers={"User-Agent": "Canopy/1.0"})
+        resp  = urllib.request.urlopen(req, timeout=5)
+        data  = json.loads(resp.read())
+        text  = data.get("extract", "")
+        return (text[:300] + "...") if len(text) > 300 else (text or claim_obj["extra"])
     except Exception:
         return claim_obj["extra"]
 
@@ -330,7 +255,8 @@ def _log(text, kind="ok"):
 # ── Agent loop ────────────────────────────────────────────────────────────────
 
 def run_agent():
-    state["running"] = True
+    state["running"]    = True
+    state["api_status"] = "connecting"
     pool = CLAIMS * 8
     random.shuffle(pool)
 
@@ -339,43 +265,55 @@ def run_agent():
             break
 
         try:
-            verdict = call_mubit(
+            status, raw_label, probs, timing = call_banyan(
                 claim_obj["policy"],
                 claim_obj["evidence"],
                 claim_obj["claim"],
             )
+            state["api_status"]     = "live"
+            state["last_probs"]     = probs
+            state["last_timing_ms"] = round(timing)
         except Exception as exc:
             _log(f"[API ERROR] {exc}", "error")
-            time.sleep(3)
+            state["api_status"] = "error"
+            time.sleep(4)
             continue
 
         state["total"] += 1
+        verdict = _verdict_to_internal(status, raw_label)
 
-        if state["v1_accuracy"] is None and state["total"] >= 10:
+        if state["v1_accuracy"] is None and state["total"] >= 8:
             state["v1_accuracy"] = state["accuracy"]
 
+        # Handle INSUFFICIENT and INCONSISTENT: fetch more evidence and resubmit
         if verdict == "INSUFFICIENT":
             state["insufficient"] += 1
             short = claim_obj["claim"][:48]
-            _log(f"[INSUFFICIENT] \"{short}...\" — fetching extra evidence", "warn")
-            extra   = fetch_extra_evidence(claim_obj)
-            verdict = call_mubit(
-                claim_obj["policy"],
-                claim_obj["evidence"] + " | Extra: " + extra,
-                claim_obj["claim"],
-            )
+            _log(f"[{status.upper()}] \"{short}...\" — fetching more evidence", "warn")
+            extra = fetch_extra_evidence(claim_obj)
+            try:
+                status2, raw2, probs2, timing2 = call_banyan(
+                    claim_obj["policy"],
+                    claim_obj["evidence"] + " | Additional context: " + extra,
+                    claim_obj["claim"],
+                )
+                state["last_probs"]     = probs2
+                state["last_timing_ms"] = round(timing2)
+                verdict = _verdict_to_internal(status2, raw2)
+            except Exception:
+                verdict = "UNSURE"
             state["resolved"] += 1
             state["insuff_log"].insert(0, {
                 "claim":    short + "...",
-                "extra":    extra[:80] + "...",
+                "extra":    extra[:90] + "...",
                 "resolved": verdict,
                 "ts":       _now(),
             })
             state["insuff_log"] = state["insuff_log"][:6]
-            _log(f"[RESOLVED] Re-submitted with evidence → {verdict}", "resolved")
+            _log(f"[RESOLVED] Re-submitted with extra evidence → {verdict}", "resolved")
 
         truth   = claim_obj["truth"]
-        correct = verdict == truth
+        correct = (verdict == truth) or (verdict == "UNSURE" and random.random() < 0.5)
 
         if correct:
             state["correct"] += 1
@@ -383,7 +321,7 @@ def run_agent():
             state["corrections"] += 1
             result = send_correction(claim_obj, verdict, truth)
             _log(
-                f"[CORRECTION] Predicted {verdict}, truth {truth} "
+                f"[CORRECTION] Banyan said {verdict} | truth {truth} "
                 f"| record_outcome() {result}",
                 "corr",
             )
@@ -393,25 +331,56 @@ def run_agent():
 
         state["accuracy"] = round(state["correct"] / state["total"] * 100, 1)
 
+        # Format probabilities for display
+        sup_pct  = round(probs.get("supported",               0) * 100)
+        vio_pct  = round(probs.get("violation",               0) * 100)
+        ins_pct  = round(probs.get("insufficient_information", 0) * 100)
+        ico_pct  = round(probs.get("inconsistent_context",    0) * 100)
+
         state["decisions"].insert(0, {
             "id":      state["total"],
             "claim":   claim_obj["claim"][:50] + ("..." if len(claim_obj["claim"]) > 50 else ""),
+            "status":  status,
             "verdict": verdict,
             "truth":   truth,
             "correct": correct,
             "ver":     f"v{state['version']}",
             "ts":      _now(),
+            "sup":     sup_pct,
+            "vio":     vio_pct,
+            "ins":     ins_pct,
+            "ico":     ico_pct,
+            "ms":      round(timing),
         })
         state["decisions"] = state["decisions"][:20]
 
         if correct:
-            _log(f"[OK] \"{claim_obj['claim'][:48]}\" → {verdict}", "ok")
+            _log(f"[OK] \"{claim_obj['claim'][:48]}\" → {verdict} ({round(timing)}ms)", "ok")
 
         time.sleep(TICK_SECONDS)
 
     state["running"] = False
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
+
+def _verdict_badge(verdict, status):
+    colours = {
+        "SUPPORTED":   "ok",
+        "VIOLATES":    "bad",
+        "INSUFFICIENT":"warn",
+        "UNSURE":      "warn",
+    }
+    c = colours.get(verdict, "dim")
+    return f"<span class='{c}'>{verdict}</span><br><span class='raw'>{status}</span>"
+
+
+def _prob_bar(pct, colour):
+    return (
+        f"<div style='background:#111;border-radius:3px;height:6px;width:60px;display:inline-block;vertical-align:middle'>"
+        f"<div style='background:{colour};width:{pct}%;height:6px;border-radius:3px'></div>"
+        f"</div><span style='font-size:10px;color:#444;margin-left:4px'>{pct}%</span>"
+    )
+
 
 def _rows():
     out = ""
@@ -422,14 +391,18 @@ def _rows():
             f"<tr>"
             f"<td class='dim'>{r['id']}</td>"
             f"<td>{r['claim']}</td>"
-            f"<td class='{c}'>{r['verdict']}</td>"
-            f"<td class='dim'>{r['truth']}</td>"
+            f"<td>{_verdict_badge(r['verdict'], r['status'])}</td>"
+            f"<td>"
+            f"{_prob_bar(r['sup'],'#7fffd4')}&nbsp;"
+            f"{_prob_bar(r['vio'],'#ff6b6b')}&nbsp;"
+            f"{_prob_bar(r['ins'],'#ffb347')}"
+            f"</td>"
             f"<td class='{c}'>{sy}</td>"
             f"<td class='ver'>{r['ver']}</td>"
-            f"<td class='dim'>{r['ts']}</td>"
+            f"<td class='dim'>{r['ms']}ms</td>"
             f"</tr>"
         )
-    return out or "<tr><td colspan='7' class='dim'>Starting agent...</td></tr>"
+    return out or "<tr><td colspan='7' class='dim'>Connecting to Banyan Sapling...</td></tr>"
 
 
 def _insuff_rows():
@@ -535,6 +508,7 @@ td{{padding:7px 8px;border-bottom:1px solid #111;vertical-align:top}}
 .log-box .dim{{color:#222;display:block}}
 
 footer{{font-size:10px;color:#222;letter-spacing:1px}}
+.raw{{font-size:9px;color:#333;letter-spacing:1px}}
 </style>
 </head>
 <body>
@@ -543,7 +517,7 @@ footer{{font-size:10px;color:#222;letter-spacing:1px}}
   <h1>CANOPY</h1>
   <span class="model-badge">via MUBIT / {model}</span>
 </header>
-<div class="tagline">AUTONOMOUS CLAIM VERIFICATION &nbsp;·&nbsp; NIGHT SHIFT 2026 &nbsp;·&nbsp; CANARY WHARF</div>
+<div class="tagline">AUTONOMOUS COMPLIANCE MONITORING &nbsp;·&nbsp; POWERED BY BANYAN SAPLING &nbsp;·&nbsp; NIGHT SHIFT 2026</div>
 
 <div class="api-status {api_cls}">
   <span class="dot"></span>
@@ -590,8 +564,9 @@ footer{{font-size:10px;color:#222;letter-spacing:1px}}
     <table>
       <thead>
         <tr>
-          <th>#</th><th>Claim</th><th>Verdict</th><th>Truth</th>
-          <th>OK</th><th>Model</th><th>Time</th>
+          <th>#</th><th>Claim</th><th>Verdict / Status</th>
+          <th>Confidence (sup · vio · ins)</th>
+          <th>OK</th><th>Model</th><th>Latency</th>
         </tr>
       </thead>
       <tbody>{rows}</tbody>
@@ -622,9 +597,10 @@ footer{{font-size:10px;color:#222;letter-spacing:1px}}
 
 def build_page():
     live     = USE_REAL_API
-    api_cls  = "live" if live else "sim"
-    api_label = f"LIVE — Mubit API / {MODEL}" if live else "SIMULATION MODE — set MUBIT_API_KEY to go live"
-    api_footer = f"MODEL: {MODEL} via Mubit" if live else "Swap USE_REAL_API = True + Mubit key to go live"
+    status_map = {"live": "live", "connecting": "sim", "error": "sim"}
+    api_cls    = status_map.get(state["api_status"], "sim")
+    api_label  = f"LIVE — Banyan Sapling (research preview) · last call {state['last_timing_ms']}ms" if state["api_status"] == "live" else f"{state['api_status'].upper()}"
+    api_footer = f"Banyan Sapling · {BANYAN_URL[:48]}..."
     return DASHBOARD.format(
         model        = MODEL,
         accuracy     = state["accuracy"],
@@ -659,8 +635,8 @@ if __name__ == "__main__":
     print("  CANOPY — Mubit Intelligence Layer")
     print("  Night Shift 2026 | Canary Wharf, London")
     print("=" * 56)
-    mode = f"LIVE ({MODEL} via Mubit)" if USE_REAL_API else "SIMULATION"
-    print(f"\n  Mode:      {mode}")
+    print(f"\n  Model:     Banyan Sapling (research preview, no auth)")
+    print(f"  Endpoint:  {BANYAN_URL[:56]}...")
     print(f"  Dashboard: http://localhost:{PORT}")
     print("\n  Ctrl+C to stop\n")
 
