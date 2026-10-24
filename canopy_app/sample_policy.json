@@ -1,0 +1,10 @@
+{
+  "version": "refund-policy-2026-10-v1",
+  "rules": [
+    {"id": "R1", "text": "A paid plan is refundable within 14 calendar days of purchase if no paid features have been used."},
+    {"id": "R2", "text": "A paid plan with any paid-feature usage is not eligible for a standard refund."},
+    {"id": "R3", "text": "A purchase more than 14 calendar days ago is not eligible for a standard refund."},
+    {"id": "R4", "text": "A duplicate charge is eligible for correction regardless of purchase age or feature usage."},
+    {"id": "R5", "text": "When purchase age or paid-feature usage is unknown, do not promise a standard refund. Ask for the missing fact."}
+  ]
+}

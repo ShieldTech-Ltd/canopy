@@ -1,0 +1,4 @@
+{$CANOPY_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy canopy:8080
+}

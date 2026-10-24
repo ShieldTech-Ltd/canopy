@@ -1,0 +1,32 @@
+name: Test
+on:
+  push:
+  pull_request:
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: 'python -m pip install --require-hashes --only-binary=:all: -r requirements.lock'
+      - run: python -m pip install pip-audit==2.10.1
+      - run: python -m pip_audit -r requirements.lock --progress-spinner off
+      - run: python -m unittest -v
+      - run: docker compose --env-file deploy/env.example -f deploy/compose.yaml config --quiet
+      - run: docker compose --env-file deploy/env.example -f deploy/compose.yaml run --rm --no-deps caddy caddy adapt --config /etc/caddy/Caddyfile --validate >/dev/null
+      - run: docker build --tag canopy:pr .
+      - name: Smoke test container runtime
+        run: |
+          docker run -d --rm --name canopy-smoke -p 127.0.0.1:18082:8080 -e CANOPY_PUBLIC_ORIGIN=https://canopy.example.test -e CANOPY_OPERATOR_TOKEN=ci-only-token-at-least-thirty-two-characters -e MUBIT_API_KEY=ci-placeholder-never-used canopy:pr
+          trap 'docker logs canopy-smoke; docker stop canopy-smoke' EXIT
+          for ((attempt=1; attempt<=30; attempt++)); do
+            if curl --fail --silent http://127.0.0.1:18082/livez; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent -H 'Host: canopy.example.test' -u operator:ci-only-token-at-least-thirty-two-characters http://127.0.0.1:18082/readyz
+      - name: Smoke test HTTPS Compose deployment
+        run: bash scripts/smoke_compose.sh
