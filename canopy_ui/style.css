@@ -834,7 +834,8 @@ kbd {
   display: flex;
   height: 43px;
   flex-shrink: 0;
-  gap: 24px;
+  align-items: center;
+  gap: 6px;
   padding: 0 14px;
 }
 .inspector-tabs button {
@@ -842,15 +843,23 @@ kbd {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  background: none;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  padding: 0 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 10px;
   color: var(--dim);
+}
+.inspector-tabs button:hover {
+  color: var(--text);
+  background: var(--panel);
 }
 .inspector-tabs button[aria-selected="true"] {
   color: var(--text);
-  border-bottom-color: var(--accent);
+  border-color: var(--accent);
+  background: var(--panel);
+}
+.inspector-tabs button[aria-selected="true"] .ui-icon {
+  color: var(--accent);
 }
 .inspector > section {
   overflow: auto;
