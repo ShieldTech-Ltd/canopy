@@ -647,7 +647,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && innerWidth <= 680) trace(false);
 });
 wireSamples();
-modeControls();
+newChat();
 if (innerWidth <= 680) trace(false);
 api("/api/status")
   .then((config) => {
