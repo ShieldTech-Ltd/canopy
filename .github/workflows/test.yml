@@ -28,3 +28,5 @@ jobs:
             sleep 1
           done
           curl --fail --silent -H 'Host: canopy.example.test' -u operator:ci-only-token-at-least-thirty-two-characters http://127.0.0.1:18082/readyz
+      - name: Smoke test HTTPS Compose deployment
+        run: bash scripts/smoke_compose.sh

@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     init: true
     environment:
-      CANOPY_PUBLIC_ORIGIN: https://${CANOPY_DOMAIN:?Set CANOPY_DOMAIN}
+      CANOPY_PUBLIC_ORIGIN: ${CANOPY_PUBLIC_ORIGIN:?Set CANOPY_PUBLIC_ORIGIN}
       CANOPY_POLICY_PATH: /run/canopy-policy.json
       CANOPY_OPERATOR_TOKEN_FILE: /run/secrets/operator_token
       MUBIT_API_KEY_FILE: /run/secrets/mubit_api_key
@@ -35,8 +35,8 @@ services:
     environment:
       CANOPY_DOMAIN: ${CANOPY_DOMAIN:?Set CANOPY_DOMAIN}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CANOPY_HTTP_PORT:-80}:80"
+      - "${CANOPY_HTTPS_PORT:-443}:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
