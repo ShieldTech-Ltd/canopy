@@ -1,7 +1,9 @@
 # Canopy
 
-> Autonomous compliance monitoring powered by Mubit and Banyan Sapling.
-> The intelligence layer that handles all three verdicts, not just two.
+> **Every other team built an app that uses an AI. We built an app that trains one.**
+
+Autonomous compliance monitoring powered by Mubit and Banyan Sapling.
+The intelligence layer that handles all three verdicts, not just two.
 
 Built at **Night Shift 2026**, Mubit Hackathon, Canary Wharf, London.
 
