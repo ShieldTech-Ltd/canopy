@@ -31,6 +31,7 @@ if os.path.exists(_env):
 BANYAN_URL     = "https://6adbee0669a00298cd4774c9.endpoints.huggingface.cloud"
 MUBIT_KEY      = os.environ.get("MUBIT_API_KEY", "")
 MUBIT_BASE_URL = "https://api.mubit.ai/openai/v1"
+MODEL          = "banyan-sapling"
 PORT           = 8080
 TICK_SECONDS   = 3.0
 # ────────────────────────────────────────────────────────────────────────────
@@ -596,7 +597,6 @@ footer{{font-size:10px;color:#222;letter-spacing:1px}}
 
 
 def build_page():
-    live     = USE_REAL_API
     status_map = {"live": "live", "connecting": "sim", "error": "sim"}
     api_cls    = status_map.get(state["api_status"], "sim")
     api_label  = f"LIVE — Banyan Sapling (research preview) · last call {state['last_timing_ms']}ms" if state["api_status"] == "live" else f"{state['api_status'].upper()}"
@@ -643,7 +643,7 @@ if __name__ == "__main__":
     t = threading.Thread(target=run_agent, daemon=True)
     t.start()
 
-    server = HTTPServer(("localhost", PORT), Handler)
+    server = HTTPServer(("0.0.0.0", PORT), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
