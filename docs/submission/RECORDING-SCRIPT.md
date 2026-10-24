@@ -1,40 +1,37 @@
-# Canopy recording script
+# Two-minute Canopy demo
 
-Use the **Recurring tasks** track. The video must stay under the organiser's current limit (the team handoff reports under three minutes). Record a fresh browser session after the reviewed PR is merged and the Render build matches that commit. Use only fictional or approved non-sensitive cases. Keep the Mubit API key and operator password out of the frame.
+Submit an MP4 or MOV of at most **2:00** and **300 MB**. The submission has no deck. The team fills the private `/submit` form; judges inspect the default `main` branch and README at **08:00 Sunday 25 October, London time**. The earlier announcement also called **07:00** the code freeze, so finish the merge before 07:00 unless the organisers explicitly supersede that cutoff. The UK clock moves back at 02:00.
 
-## Submission timing
+Use the **Recurring tasks** track and fictional or approved non-sensitive cases. Show a live request, not a prepared answer. Keep secrets and personal data out of the recording.
 
-The organiser's 24 October update says `/submit` opened at **00:00 Sunday 25 October**, with **07:00 Sunday 25 October London time** as the last moment to push code and submit. The UK clock moves back at 02:00, so the 07:00 deadline is GMT. The closing ceremony and awards are at 09:00. Check the live `/submit` form for required fields and upload formats; the announcement does not list them. The PDF deck is optional unless that form asks for one.
+## Preflight on the deployed build
 
-## Before capture
+1. Confirm Render's deployed commit is the intended commit on `main`, then open `/livez`. Its build label is a release string, not a Git commit hash. `/api/status` showing `configured=true` proves key presence only.
+2. Select training retention for the fictional case, then run it through the deployed app. Check the verdict, policy quote, and fresh `mreq_` IDs. Match the verification ID in Mubit Requests. If Mubit is unavailable, show the error honestly and wait for service recovery before recording a successful run.
+3. Save a human review, reopen the case in the same browser session, and confirm the reason and original request ID remain. A review of a correct verdict is a **confirmation**. A different verdict is a **correction**. Both are currently `local_only`.
+4. Have the teammate who owns the Mubit project read the **current verification task's** kept-example count, adapter version, and test result. The 25 October instruction change may have created a new Mubit task. Do not combine counts across task versions. A recorded call is not necessarily a kept example. Use the adapter ending below only if a version is `Passed` and available in Try models.
+5. Check whether Render uses a persistent disk for `CANOPY_AGENT_DB` and whether the case survives a restart. Reopening within one deployment proves SQLite storage, not persistence across redeploys.
 
-1. Open Render and warm `/livez`; confirm `/api/status` reports the deployed build. A key-present status is not a live model check.
-2. Open Canopy as an authorised operator. Switch from Chat with Canopy to **Verify a case**. Keep the browser zoom high enough for the trace to read.
-3. Check the Mubit console's current task, kept-example count, and Adapters page. Decide which of the two endings below is factually available. Do not call 25 successful requests 25 kept examples.
-4. Rehearse the fictional refund case once. If it returns the correct `VIOLATES` verdict, the human review is a **confirmation**, not a correction. If it fails or times out, recover and record a clean run; disclose a material persistent failure.
+## Capture sequence (target 1:50)
 
-## Three-minute sequence
-
-| Time | Screen | Say |
+| Time | Show | Say |
 |---|---|---|
-| 0:00-0:20 | Canopy and the case prompt | “Canopy checks a claim against only the policy and evidence supplied. This is a repeatable support review task.” |
-| 0:20-0:55 | Load and run **Refund exception** | “The normal refund window is 14 days. Damaged items have a 30-day exception, even after use. The customer has photos and is at day 21. The claim says we must refuse.” |
-| 0:55-1:25 | Verdict and Evidence tab | “Canopy says `VIOLATES`, cites the damaged-item exception, and explains why. Missing facts would produce `INSUFFICIENT`.” |
-| 1:25-1:50 | Execution tab | “Extraction and verification went through Mubit. These are the real gateway request IDs and timings for this run.” Point to the new ID from the recording, not an older screenshot. |
-| 1:50-2:10 | Save and reopen review | “A person confirms or corrects the decision with a reason. This review is stored in Canopy and tied to the original request.” Show `local_only`. |
-| 2:10-2:45 | Mubit console | Use **one** factual ending below. |
-| 2:45-2:55 | App and repository links | “The app and code are available for inspection.” |
+| 0:00–0:15 | Verify a case and the built-in refund case | “Canopy checks repeatable support decisions against the policy and evidence supplied for each case.” |
+| 0:15–0:45 | Run the case and reveal the result | “This fictional policy has a 30-day damaged-item exception. The claim says the day-21 refund must be refused. The verdict is `VIOLATES`; here is the policy wording behind it.” |
+| 0:45–1:05 | Evidence and Execution tabs | “These are the supplied facts, the actual Mubit request IDs, and this run's measured time.” Do not claim a speedup without a measured manual baseline. |
+| 1:05–1:25 | Save the human verdict and reason; reopen it | “A reviewer can confirm or correct the result. Canopy stores that review with its originating request ID.” Show the `local_only` status. |
+| 1:25–1:50 | Mubit console, then app | Use **one** factual ending below. Leave a few seconds for the app and repository URL. |
 
-### Ending A: a Passed adapter exists
+### If a passing adapter is available
 
-Show the task's kept-example count, the adapter version and `Passed` status, then **Compare with your provider** in Try models on an unseen case. Say: “Mubit trained and tested this adapter from kept task examples. Try models compares it with the provider; those comparison calls do not train. We have not verified that Canopy's local human review entered this version unless Mubit gives us that trace.” Report the human label separately if available.
+Show the task's kept-example count, the adapter version and `Passed` result, then **Compare with your provider** in Try models using an unseen case with an independent human label. State the provider and adapter answers separately. Try models comparisons do not train. A passing version does **not** prove that Canopy's locally saved review entered training, so do not attribute a changed answer to that review without an accepted correction trace.
 
-### Ending B: no Passed adapter exists
+### If no passing adapter is available
 
-Show the task's actual status and kept-example count. Say: “The working app routes through Mubit, and we requested recording for approved examples. Mubit decides which examples to keep and when to train. This is the current task state. Canopy's review is local; we do not claim an adapter update or accuracy gain.”
+Show the task's actual state. Say: “The app routes through Mubit and can request recording for approved cases. This is the current kept-example and adapter status. Reviewer decisions remain in Canopy, so we do not claim a model update or an accuracy gain.”
 
-## Final checks
+## Final recording check
 
-- Watch the exported MP4 or MOV with sound. Confirm duration, readable request IDs, and no credentials or personal data.
-- Match every learning claim in the video and submission text to the console state observed at recording time. Save the `/submit` receipt.
-- Keep the demo answer ready: a routed request proves Mubit use; a kept-example count proves collection; a Passed adapter plus comparison proves an available model version; none of those alone proves a local reviewer correction trained it.
+- Watch the exported file with sound. Confirm duration, file size, legible request IDs, and no secrets.
+- Match every learning claim to the console state observed in the recording. A new answer after editing the policy or evidence shows changed context, not learning.
+- A live routed request, a stored human review, a kept example, and a passing adapter are distinct facts. Show each only when verified.

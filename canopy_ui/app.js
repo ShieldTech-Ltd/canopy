@@ -465,7 +465,7 @@ function resultBody(body, run) {
 function saved(body, review) {
   const el = node("div", "saved-review");
   el.append(
-    node("strong", "", `Human review: ${review.verdict}`),
+    node("strong", "", `Human ${review.kind || "review"}: ${review.verdict}`),
     node("div", "", review.reason),
     node(
       "div",
@@ -505,7 +505,7 @@ function reviewForm(body, run) {
   const note = node(
     "p",
     "result-meta",
-    "This saves a correction linked to this case and its Mubit request ID. It does not claim a model update.",
+    "This saves your review linked to this case and its Mubit request ID. It does not claim a model update.",
   );
   form.append(label, reasonLabel, button, note);
   form.addEventListener("submit", async (e) => {
