@@ -1,22 +1,15 @@
-# Production readiness gates
+# Deployment readiness
 
-Canopy is a **single-operator pilot**, not a customer-facing multi-tenant service. Passing source tests does not prove live Mubit access, adapter learning, or a safe public deployment.
+This document covers the active terminal workspace (`canopy_runtime.py`) and its public demo. It is a **single-operator pilot**, not a customer-facing multi-user service. The separate `canopy_app/` policy application has different controls and storage; its checks must not be attributed to this app.
 
-| Gate | Current evidence | Required before claiming completion |
+| Gate | Current implementation | Live acceptance required |
 |---|---|---|
-| Auth and transport | 32+ character operator token is required outside local demo mode; non-local public origin must be HTTPS; service binds to loopback by default. A single-host Caddy/Compose template keeps the app on a private Docker network and supports file-mounted secrets. | Deploy the template behind real DNS and TLS, test authenticated access through the actual public URL, and rotate a test token. |
-| Data handling | Recording is off by default; explicit operator choice requests full recording. SQLite and backups are owner-only from creation; backup, retention, and case deletion commands exist. | Approve the actual data classification, retention schedule, backup location, and Mubit/provider data terms. Do not send private customer records until those decisions are made. |
-| Policy integrity | Policy JSON is validated at startup; each new decision stores its policy version, hash, and full rule snapshot. Reviews use that snapshot after policy changes; legacy cases without a snapshot cannot be reviewed. System instructions stay stable. | Replace the fictional sample with an approved real policy, retain every published policy revision, and have domain owners validate evaluation labels. |
-| Model routing | Source fixes the Mubit base URL and rejects responses without an `mreq_` ID. | Run an authenticated live call and match its request ID and payload to Mubit Requests. Confirm the selected provider model is available. |
-| Learning loop | Human review is durably stored as `local_only`. Guessed feedback endpoints were removed. | Obtain and implement the hackathon's documented correction contract; verify accepted feedback, kept examples, training status, and an actual adapter result. A local review does not satisfy this gate. |
-| Quality | Fixed sample-policy collection and holdout sets, per-case outputs, latency, and errors. Holdout requests recording off. | Run a live baseline, then evaluate a confirmed passing adapter on unseen cases. Report provider, Mubit test, and human labels separately; do not infer improvement from cumulative accuracy. |
-| Operations | Gunicorn serves the Flask app; `/livez`, authenticated `/readyz`, bounded requests and concurrent calls, safe structured logs, non-root image, 20 local tests, a hash-locked Python 3.11 dependency set, and CI dependency audit. CI runs a synthetic HTTPS Compose smoke covering auth, private port, restart persistence, and backup restore. | Build and run the container in the target environment; verify persistence, restart, backup/restore, log collection, error alerts, and resource limits there. |
+| Access | Optional HTTP Basic Auth via `CANOPY_OPERATOR_TOKEN`; session-scoped cases and chats; browser POSTs with a mismatched `Origin` are rejected. | Set the operator secret and exact HTTPS `CANOPY_PUBLIC_ORIGIN` on Render. Verify unauthenticated requests fail and authorised browser requests work. Arrange judge access through the approved event channel. |
+| Storage | The active app uses SQLite at `CANOPY_AGENT_DB`, locally `canopy-agent.sqlite3` by default. | Point `CANOPY_AGENT_DB` at a Render persistent disk and verify a reviewed case survives restart. Without a disk, disclose that persistence is limited to the current deployment. |
+| Mubit routing | Chat, extraction, and verification use the Mubit gateway; model responses without an `mreq_` ID are rejected. | Make a live fictional verification, match its ID and payload in Mubit Requests, and confirm the provider model works. Key presence in `/readyz` or `/api/status` is insufficient. |
+| Feedback and learning | One reviewer verdict and reason are saved with the verification request ID as `local_only`. | Obtain a documented supported correction workflow, observe acceptance and kept-example status, then trace any adapter result. Until then, do not claim learning or improvement. |
+| Data | Recording is opt-in for verification and chat; extraction is not retained. Cases and chats are stored under a browser session ID. | Use fictional or explicitly approved non-sensitive cases. Agree data retention and provider terms before customer data. |
+| Quality | Unit tests cover routing, provenance, missing evidence, review, isolation, and failure paths with mocked Mubit responses. | Evaluate independently labelled unseen cases if a passing adapter becomes available; report provider, adapter, and human labels separately. |
+| Operations | The image runs as non-root; Gunicorn serves one worker with eight threads. CI builds and smoke-tests the image and legacy Compose deployment. | Check the deployed build, authenticated readiness, restart persistence, provider failures, logs, and a real browser walkthrough. |
 
-## Deployment acceptance run
-
-1. Set secrets through the target platform; do not place them in the repo, image, command history, screenshots, or recordings.
-2. Start with a persistent private volume and verify `/readyz` through the proxy using operator auth.
-3. Check cross-origin rejection, invalid token rejection, and direct-port isolation from outside the host.
-4. Send one approved synthetic check, review it, restart, and confirm the case and policy hash persist.
-5. Take a backup, restore it in a separate stopped test instance, and verify the case count.
-6. Run the live Mubit and correction-to-adapter gates above. Keep these as separate evidence from CI and container build results.
+Run and record the steps in [Demo acceptance](docs/DEMO-ACCEPTANCE.md). Green CI, a deployed URL, and 25 successful calls do not establish 25 kept examples or a trained adapter.
