@@ -2,6 +2,10 @@
 
 Use the **Recurring tasks** track. The video must stay under the organiser's current limit (the team handoff reports under three minutes). Record a fresh browser session after the reviewed PR is merged and the Render build matches that commit. Use only fictional or approved non-sensitive cases. Keep the Mubit API key and operator password out of the frame.
 
+## Submission timing
+
+The organiser's 24 October update says `/submit` opened at **00:00 Sunday 25 October**, with **07:00 Sunday 25 October London time** as the last moment to push code and submit. The UK clock moves back at 02:00, so the 07:00 deadline is GMT. The closing ceremony and awards are at 09:00. Check the live `/submit` form for required fields and upload formats; the announcement does not list them. The PDF deck is optional unless that form asks for one.
+
 ## Before capture
 
 1. Open Render and warm `/livez`; confirm `/api/status` reports the deployed build. A key-present status is not a live model check.
@@ -32,5 +36,5 @@ Show the task's actual status and kept-example count. Say: “The working app ro
 ## Final checks
 
 - Watch the exported MP4 or MOV with sound. Confirm duration, readable request IDs, and no credentials or personal data.
-- Match the PDF deck's learning-status slide to the console observed at recording time. Keep the video and PDF files separate for `/submit`, and save the receipt.
+- Match every learning claim in the video and submission text to the console state observed at recording time. Save the `/submit` receipt.
 - Keep the demo answer ready: a routed request proves Mubit use; a kept-example count proves collection; a Passed adapter plus comparison proves an available model version; none of those alone proves a local reviewer correction trained it.

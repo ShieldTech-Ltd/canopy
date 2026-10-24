@@ -25,7 +25,7 @@ Record the date, deployed build, tester, and links to evidence when running this
 - [ ] If a Mubit adapter version has **Passed**, compare it with the provider in Try models and label the comparison. Mubit support confirmed Try models interactions do not train; only the recorded app calls can contribute examples. If no version has passed, show the actual task status instead.
 - [ ] If Mubit documents a correction workflow, submit one approved synthetic correction and capture its accepted status and correlation to the original request. Trace any model update to a specific adapter version. Otherwise say reviews remain `local_only` and do not claim they caused training.
 - [ ] Claim an accuracy change only after comparing provider and a confirmed passing adapter on the same independently labelled held-out cases.
-- [ ] Verify the video is MP4 or MOV, under the organiser's current time limit, and the PDF deck reflects these observed states. Save the `/submit` receipt and confirm demo attendance.
+- [ ] Verify the video meets the live `/submit` format and time limit. Confirm the form's actual required fields, submit before 07:00 Sunday 25 October London time, save the receipt, and confirm demo attendance. The PDF deck is optional unless the form requests it.
 
 ## Evidence log
 

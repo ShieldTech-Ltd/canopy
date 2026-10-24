@@ -87,9 +87,18 @@ button {
   background: var(--panel);
 }
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-weight: 700;
   font-size: 21px;
   letter-spacing: -1px;
+}
+.wordmark-icon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  flex: none;
 }
 .wordmark-dot {
   color: var(--accent);
