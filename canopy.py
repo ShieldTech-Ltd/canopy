@@ -276,115 +276,143 @@ PAGE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Canopy — Mubit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-/* Layout */
-.app{display:flex;height:100vh}
-.sidebar{width:260px;min-width:260px;background:#06060c;border-right:1px solid #151520;display:flex;flex-direction:column;padding:16px 0}
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-/* Sidebar */
-.brand{padding:0 16px 16px;border-bottom:1px solid #151520}
-.brand h1{font-size:20px;letter-spacing:3px;color:#7fffd4;font-weight:700}
-.brand .sub{font-size:10px;color:#333;letter-spacing:1px;margin-top:2px}
-.slogan{font-size:9px;color:#1a3a2a;font-style:italic;padding:10px 16px;border-bottom:1px solid #0e0e18;line-height:1.5}
-.stats-panel{padding:14px 16px;flex:1}
-.stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid #0e0e18}
-.stat-label{font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px}
-.stat-val{font-size:16px;font-weight:700;color:#7fffd4}
-.stat-val.red{color:#ff6b6b}
-.stat-val.amber{color:#ffb347}
-.stat-val.purple{color:#a78bfa}
-.acc-bar-wrap{padding:14px 16px;border-top:1px solid #0e0e18}
-.acc-bar-label{display:flex;justify-content:space-between;margin-bottom:6px}
-.acc-bar-label span{font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px}
-.acc-bar-label strong{font-size:14px;color:#7fffd4}
-.acc-track{background:#111;border-radius:4px;height:6px}
-.acc-fill{background:linear-gradient(90deg,#4ecdc4,#7fffd4);height:6px;border-radius:4px;transition:width 1s ease}
-.live-dot{width:6px;height:6px;border-radius:50%;background:#7fffd4;display:inline-block;margin-right:6px;animation:pulse 1.4s infinite}
-.live-label{font-size:10px;color:#7fffd4;padding:10px 16px 0;display:flex;align-items:center}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
-/* Chat area */
-.chat-header{padding:16px 24px;border-bottom:1px solid #151520;display:flex;align-items:center;gap:12px;background:#08080e}
-.chat-header .title{font-size:14px;font-weight:600;color:#d0d0d8}
-.chat-header .hint{font-size:11px;color:#444}
-.messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px}
-.messages::-webkit-scrollbar{width:4px}
-.messages::-webkit-scrollbar-track{background:#0a0a0f}
-.messages::-webkit-scrollbar-thumb{background:#222}
-/* Message bubbles */
-.msg{display:flex;gap:12px;max-width:860px;width:100%}
+html,body{height:100%;background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5}
+/* ── Layout ── */
+.app{display:flex;height:100vh;overflow:hidden}
+/* ── Sidebar ── */
+.sidebar{width:272px;min-width:272px;background:#010409;border-right:1px solid #21262d;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar::-webkit-scrollbar{width:0}
+/* Brand */
+.brand{padding:20px 20px 16px;border-bottom:1px solid #21262d}
+.brand-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.brand-icon{width:32px;height:32px;background:linear-gradient(135deg,#238636,#2ea043);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;letter-spacing:1px;flex-shrink:0}
+.brand-name{font-size:15px;font-weight:700;color:#e6edf3;letter-spacing:.5px}
+.brand-sub{font-size:10px;color:#8b949e;letter-spacing:.5px;text-transform:uppercase;margin-top:1px}
+.slogan-text{font-size:11px;color:#30363d;font-style:italic;line-height:1.5;margin-top:10px}
+/* Status pill */
+.status-row{padding:12px 20px;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:8px}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.status-dot.live{background:#2ea043;box-shadow:0 0 6px #2ea04360}
+.status-dot.connecting{background:#d29922;animation:blink 1.2s infinite}
+.status-dot.error{background:#f85149}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.status-text{font-size:11px;color:#8b949e;font-weight:500}
+/* Stats grid */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:16px 20px;border-bottom:1px solid #21262d}
+.stat-card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:10px 12px}
+.stat-card-label{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;font-weight:500}
+.stat-card-val{font-size:20px;font-weight:700;line-height:1}
+.stat-card-val.green{color:#2ea043}
+.stat-card-val.red{color:#f85149}
+.stat-card-val.amber{color:#d29922}
+.stat-card-val.purple{color:#a5a0ff}
+.stat-card-val.blue{color:#58a6ff}
+.stat-card.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+.stat-card.wide .stat-card-label{margin-bottom:0}
+.ver-badge{background:#1f2937;border:1px solid #374151;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;color:#a5a0ff}
+/* Training chart */
+.chart-section{padding:16px 20px;border-bottom:1px solid #21262d}
+.section-title{font-size:11px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+.chart-item{margin-bottom:10px}
+.chart-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.chart-item-label{font-size:11px;color:#8b949e}
+.chart-item-pct{font-size:11px;font-weight:600;color:#e6edf3}
+.chart-track{height:6px;background:#21262d;border-radius:4px;overflow:hidden}
+.chart-fill{height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.chart-fill.baseline{background:#30363d}
+.chart-fill.current{background:linear-gradient(90deg,#238636,#2ea043)}
+/* Agent log */
+.log-section{flex:1;display:flex;flex-direction:column;min-height:0}
+.log-toggle{padding:10px 20px;font-size:11px;font-weight:500;color:#8b949e;cursor:pointer;display:flex;align-items:center;gap:6px;border-top:1px solid #21262d}
+.log-toggle:hover{color:#e6edf3}
+.log-toggle-icon{font-size:9px;transition:transform .2s}
+.log-mini{display:none;padding:0 12px 12px;overflow-y:auto;max-height:140px}
+.log-mini.open{display:block}
+.log-entry{font-size:10px;font-family:'SF Mono','Fira Code',monospace;padding:2px 0;color:#30363d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #161b22}
+.log-entry.ok{color:#2a4a2a}
+.log-entry.corr{color:#5a2020}
+.log-entry.upd{color:#1a4a2a}
+.log-entry.warn{color:#4a3a10}
+.log-entry.error{color:#5a1010}
+/* ── Main ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#0d1117}
+/* Top bar */
+.topbar{padding:0 24px;height:52px;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;background:#010409;flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-title{font-size:14px;font-weight:600;color:#e6edf3}
+.domain-select{background:#161b22;border:1px solid #30363d;color:#e6edf3;font-size:12px;font-weight:500;padding:5px 10px;border-radius:6px;font-family:inherit;cursor:pointer;outline:none}
+.domain-select:focus{border-color:#388bfd}
+.topbar-hint{font-size:11px;color:#8b949e}
+/* Messages */
+.messages{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:20px}
+.messages::-webkit-scrollbar{width:5px}
+.messages::-webkit-scrollbar-track{background:transparent}
+.messages::-webkit-scrollbar-thumb{background:#21262d;border-radius:4px}
+/* Bubbles */
+.msg{display:flex;gap:12px;max-width:780px;width:100%}
 .msg.user{flex-direction:row-reverse;align-self:flex-end}
-.msg-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px}
-.msg.user .msg-avatar{background:#1a3a2a;color:#7fffd4}
-.msg.agent .msg-avatar{background:#1a1a2e;color:#a78bfa}
+.msg-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px}
+.msg.user .msg-avatar{background:#1f3a24;color:#2ea043;border:1px solid #2ea04330}
+.msg.agent .msg-avatar{background:#1c2128;color:#a5a0ff;border:1px solid #30363d}
 .msg-body{flex:1}
 .msg.user .msg-body{display:flex;flex-direction:column;align-items:flex-end}
-.bubble{padding:12px 16px;border-radius:16px;font-size:14px;line-height:1.6;max-width:640px}
-.msg.user .bubble{background:#1a2a1a;border:1px solid #2a4a2a;color:#d0d0d8;border-radius:16px 16px 4px 16px}
-.msg.agent .bubble{background:#0e0e1a;border:1px solid #1a1a2e;color:#d0d0d8;border-radius:16px 16px 16px 4px;width:100%}
-/* Thinking steps */
-.thinking{padding:10px 0 4px}
-.step{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;font-family:'Courier New',monospace;color:#333}
-.step.done{color:#3a5a3a}
-.step.active{color:#7fffd4}
-.step-icon{font-size:10px;width:14px;text-align:center}
-/* Verdict card */
-.verdict-card{margin-top:10px;padding:14px;background:#060610;border-radius:10px;border:1px solid #1a1a2e}
-.verdict-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:10px}
-.verdict-badge.VIOLATES{background:#2a0a0a;border:1px solid #5a1a1a;color:#ff6b6b}
-.verdict-badge.SUPPORTED{background:#0a2a1a;border:1px solid #1a5a2a;color:#7fffd4}
-.verdict-badge.INSUFFICIENT{background:#2a1a0a;border:1px solid #5a3a0a;color:#ffb347}
-.verdict-badge.UNSURE{background:#1a1a2a;border:1px solid #3a3a5a;color:#a78bfa}
-.conf-label{font-size:11px;color:#444;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
-.prob-bars{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
-.prob-row{display:flex;align-items:center;gap:8px;font-size:11px}
-.prob-name{color:#444;width:40px;text-align:right}
-.prob-track{background:#111;border-radius:3px;height:5px;flex:1;max-width:200px}
-.prob-fill{height:5px;border-radius:3px;transition:width .5s ease}
-.prob-pct{color:#444;width:32px}
-.correction-row{display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #1a1a2e}
-.btn-corr{padding:6px 12px;border-radius:6px;border:1px solid #3a1a1a;background:#1a0a0a;color:#ff6b6b;cursor:pointer;font-size:11px;font-family:inherit}
-.btn-corr:hover{background:#2a1010}
-.btn-corr.green{border-color:#1a3a1a;background:#0a1a0a;color:#7fffd4}
-.btn-corr.green:hover{background:#0f2a0f}
-.correction-sent{font-size:11px;color:#a78bfa;margin-top:6px;padding-top:6px;border-top:1px solid #1a1a2e}
+.bubble{padding:12px 16px;border-radius:12px;font-size:13.5px;line-height:1.65;max-width:640px}
+.msg.user .bubble{background:#1f2d1f;border:1px solid #2d4a2d;color:#cdd9cd;border-radius:12px 12px 2px 12px}
+.msg.agent .bubble{background:#161b22;border:1px solid #21262d;color:#c9d1d9;border-radius:12px 12px 12px 2px;width:100%}
+/* Thinking */
+.thinking{padding:8px 0 4px}
+.step{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11.5px;font-family:'SF Mono','Fira Code',monospace;color:#30363d;border-bottom:1px solid #161b22}
+.step:last-child{border:none}
+.step.done{color:#2a4a2a}
+.step.active{color:#388bfd}
+.step-icon{width:14px;text-align:center;font-size:10px;flex-shrink:0}
+/* Verdict */
+.verdict-card{margin-top:12px;border:1px solid #21262d;border-radius:10px;overflow:hidden}
+.verdict-header{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #21262d}
+.verdict-header.VIOLATES{background:#1c0a0a}
+.verdict-header.SUPPORTED{background:#0a1f0f}
+.verdict-header.INSUFFICIENT{background:#1a1200}
+.verdict-header.UNSURE{background:#111320}
+.verdict-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.8px}
+.verdict-badge.VIOLATES{background:#5a1010;color:#f85149;border:1px solid #7a1a1a}
+.verdict-badge.SUPPORTED{background:#0d4a1a;color:#3fb950;border:1px solid #1a6a2a}
+.verdict-badge.INSUFFICIENT{background:#3a2a00;color:#d29922;border:1px solid #5a4000}
+.verdict-badge.UNSURE{background:#1a1a40;color:#a5a0ff;border:1px solid #2a2a60}
+.verdict-meta{font-size:11px;color:#8b949e}
+.verdict-body{padding:14px 16px;background:#0d1117}
+.conf-label{font-size:10px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.prob-bars{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.prob-row{display:flex;align-items:center;gap:10px}
+.prob-name{font-size:10px;font-weight:600;color:#8b949e;width:28px;text-align:right;letter-spacing:.3px}
+.prob-track{background:#161b22;border-radius:3px;height:5px;flex:1;max-width:220px;border:1px solid #21262d}
+.prob-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.prob-pct{font-size:10px;color:#8b949e;width:28px}
+.train-row{display:flex;align-items:center;gap:8px;padding-top:10px;border-top:1px solid #21262d}
+.train-label{font-size:11px;color:#8b949e;font-weight:500;margin-right:4px}
+.btn-train{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s}
+.btn-train.support{background:#0d4a1a;border:1px solid #2ea04360;color:#3fb950}
+.btn-train.support:hover{background:#155724;border-color:#2ea043}
+.btn-train.violate{background:#3a0f0f;border:1px solid #f8514960;color:#f85149}
+.btn-train.violate:hover{background:#5a1515;border-color:#f85149}
+.correction-sent{font-size:11px;color:#a5a0ff;display:flex;align-items:center;gap:6px;padding-top:10px;border-top:1px solid #21262d}
 /* Input */
-.input-area{padding:16px 24px;border-top:1px solid #151520;background:#08080e}
-.input-box{display:flex;gap:10px;align-items:flex-end;background:#0e0e18;border:1px solid #1a1a2e;border-radius:12px;padding:10px 14px}
-.input-box:focus-within{border-color:#2a4a2a}
-#user-input{flex:1;background:transparent;border:none;outline:none;color:#d0d0d8;font-size:14px;font-family:inherit;resize:none;max-height:120px;line-height:1.5}
-#user-input::placeholder{color:#333}
-.send-btn{background:#1a3a1a;border:1px solid #2a6a2a;color:#7fffd4;width:36px;height:36px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
-.send-btn:hover{background:#1f4a1f}
-.send-btn:disabled{opacity:.4;cursor:default}
-.input-hint{font-size:10px;color:#222;margin-top:6px;text-align:center}
-/* Training chart */
-.chart-wrap{padding:12px 16px;border-top:1px solid #0e0e18}
-.chart-title{font-size:10px;color:#333;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-.chart-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
-.chart-label{font-size:10px;color:#444;width:40px;text-align:right;flex-shrink:0}
-.chart-track{background:#111;border-radius:3px;height:8px;flex:1}
-.chart-fill{height:8px;border-radius:3px;transition:width 1s ease}
-.chart-pct{font-size:10px;color:#444;width:36px}
-/* Domain selector */
-.domain-wrap{padding:0 24px 8px;display:flex;align-items:center;gap:8px}
-.domain-label{font-size:11px;color:#444;flex-shrink:0}
-.domain-select{background:#0e0e18;border:1px solid #1a1a2e;color:#d0d0d8;font-size:11px;padding:4px 8px;border-radius:6px;font-family:inherit;cursor:pointer;flex:1;max-width:220px}
-.domain-select:focus{outline:none;border-color:#2a4a2a}
-/* Agent log panel toggle */
-.log-toggle{padding:8px 16px;font-size:10px;color:#222;cursor:pointer;text-align:center;border-top:1px solid #0e0e18;text-transform:uppercase;letter-spacing:1px}
-.log-toggle:hover{color:#444}
-.log-mini{display:none;padding:0 16px 8px;max-height:120px;overflow-y:auto}
-.log-mini.open{display:block}
-.log-entry{font-size:10px;font-family:'Courier New',monospace;padding:1px 0;border-bottom:1px solid #0a0a14;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.log-entry.ok{color:#2a4a2a}
-.log-entry.corr{color:#4a1a1a}
-.log-entry.upd{color:#7fffd4}
-.log-entry.warn{color:#4a3a1a}
-.log-entry.resolved{color:#2a1a4a}
-.log-entry.error{color:#4a0a0a}
+.input-wrap{padding:12px 24px 16px;border-top:1px solid #21262d;background:#010409;flex-shrink:0}
+.domain-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.domain-row-label{font-size:11px;color:#8b949e;font-weight:500}
+.input-box{display:flex;gap:10px;align-items:flex-end;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:10px 14px;transition:border-color .15s}
+.input-box:focus-within{border-color:#388bfd}
+#user-input{flex:1;background:transparent;border:none;outline:none;color:#e6edf3;font-size:13.5px;font-family:inherit;resize:none;max-height:120px;line-height:1.6}
+#user-input::placeholder{color:#484f58}
+.send-btn{background:#238636;border:1px solid #2ea043;color:#fff;width:34px;height:34px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;transition:background .15s}
+.send-btn:hover{background:#2ea043}
+.send-btn:disabled{opacity:.35;cursor:default}
+.input-footer{font-size:10px;color:#30363d;margin-top:6px;text-align:center}
 </style>
 </head>
 <body>
@@ -393,43 +421,79 @@ html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system
 <!-- Sidebar -->
 <div class="sidebar">
   <div class="brand">
-    <h1>CANOPY</h1>
-    <div class="sub">MUBIT INTELLIGENCE LAYER</div>
-  </div>
-  <div class="slogan">"Every other team built an app that uses an AI. We built an app that trains one."</div>
-  <div class="live-label"><span class="live-dot"></span><span id="live-status">Connecting...</span></div>
-  <div class="stats-panel">
-    <div class="stat-row"><span class="stat-label">Accuracy</span><span class="stat-val" id="s-acc">0%</span></div>
-    <div class="stat-row"><span class="stat-label">Decisions</span><span class="stat-val" id="s-total">0</span></div>
-    <div class="stat-row"><span class="stat-label">Corrections</span><span class="stat-val red" id="s-corr">0</span></div>
-    <div class="stat-row"><span class="stat-label">INSUFFICIENT</span><span class="stat-val amber" id="s-ins">0</span></div>
-    <div class="stat-row"><span class="stat-label">Resolved</span><span class="stat-val amber" id="s-res">0</span></div>
-    <div class="stat-row"><span class="stat-label">Model ver.</span><span class="stat-val purple" id="s-ver">v1</span></div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-title">Training progress</div>
-    <div class="chart-row">
-      <span class="chart-label">Baseline</span>
-      <div class="chart-track"><div class="chart-fill" id="chart-v1" style="width:0%;background:#444"></div></div>
-      <span class="chart-pct" id="chart-v1-pct">—</span>
+    <div class="brand-row">
+      <div class="brand-icon">C</div>
+      <div>
+        <div class="brand-name">Canopy</div>
+        <div class="brand-sub">Mubit Intelligence Layer</div>
+      </div>
     </div>
-    <div class="chart-row">
-      <span class="chart-label">Now</span>
-      <div class="chart-track"><div class="chart-fill" id="chart-now" style="width:0%;background:linear-gradient(90deg,#4ecdc4,#7fffd4)"></div></div>
-      <span class="chart-pct" id="chart-now-pct">0%</span>
+    <div class="slogan-text">"Every other team built an app that uses an AI. We built an app that trains one."</div>
+  </div>
+  <div class="status-row">
+    <div class="status-dot connecting" id="status-dot"></div>
+    <span class="status-text" id="live-status">Connecting to Banyan Sapling...</span>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-card-label">Accuracy</div>
+      <div class="stat-card-val green" id="s-acc">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Decisions</div>
+      <div class="stat-card-val blue" id="s-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Corrections</div>
+      <div class="stat-card-val red" id="s-corr">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Resolved</div>
+      <div class="stat-card-val amber" id="s-res">0</div>
+    </div>
+    <div class="stat-card wide">
+      <div class="stat-card-label">Model version</div>
+      <div class="ver-badge" id="s-ver">v1</div>
     </div>
   </div>
-  <div class="log-toggle" onclick="toggleLog()">▸ agent log</div>
-  <div class="log-mini" id="log-mini"></div>
+  <div class="chart-section">
+    <div class="section-title">Training progress</div>
+    <div class="chart-item">
+      <div class="chart-item-head">
+        <span class="chart-item-label">Baseline</span>
+        <span class="chart-item-pct" id="chart-v1-pct" style="color:#8b949e">—</span>
+      </div>
+      <div class="chart-track"><div class="chart-fill baseline" id="chart-v1" style="width:0%"></div></div>
+    </div>
+    <div class="chart-item">
+      <div class="chart-item-head">
+        <span class="chart-item-label">Current</span>
+        <span class="chart-item-pct" id="chart-now-pct">0%</span>
+      </div>
+      <div class="chart-track"><div class="chart-fill current" id="chart-now" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="log-section">
+    <div class="log-toggle" onclick="toggleLog()">
+      <span class="log-toggle-icon" id="log-icon">▶</span>
+      Agent log
+    </div>
+    <div class="log-mini" id="log-mini"></div>
+  </div>
 </div>
 
-<!-- Main chat -->
+<!-- Main -->
 <div class="main">
-  <div class="chat-header">
-    <div>
-      <div class="title" id="chat-title">Compliance Training Chat</div>
-      <div class="hint">Type a scenario. Canopy verifies it against Banyan Sapling and trains Mubit from your corrections.</div>
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title" id="chat-title">Compliance Training Chat</span>
+      <select class="domain-select" id="domain-select" onchange="updateDomain()">
+        <option value="compliance">Regulatory Compliance</option>
+        <option value="contract">Contract Review</option>
+        <option value="risk">Risk Assessment</option>
+      </select>
     </div>
+    <span class="topbar-hint">Powered by Banyan Sapling · Mubit record_outcome()</span>
   </div>
   <div class="messages" id="messages">
     <div class="msg agent">
@@ -437,26 +501,18 @@ html,body{height:100%;background:#0a0a0f;color:#e0e0e8;font-family:-apple-system
       <div class="msg-body">
         <div class="bubble">
           Hello. I am Canopy, a compliance verification agent powered by Mubit and Banyan Sapling.<br><br>
-          Describe a compliance scenario and I will verify it. You can give me the policy, evidence, and claim separately, or just describe the situation in plain English and I will structure it automatically via Mubit.<br><br>
-          After each verdict, you can correct me if I got it wrong. Every correction goes straight to Mubit's <code>record_outcome()</code> to train a better adapter.
+          Describe a scenario and I will verify it. You can use plain English and I will extract the policy, evidence, and claim automatically via Mubit's model gateway.<br><br>
+          After each verdict, use the training buttons to correct me. Every correction fires Mubit's <code>record_outcome()</code> to train a better adapter in real time.
         </div>
       </div>
     </div>
   </div>
-  <div class="input-area">
-    <div class="domain-wrap">
-      <span class="domain-label">Domain:</span>
-      <select class="domain-select" id="domain-select" onchange="updateDomain()">
-        <option value="compliance">Regulatory Compliance</option>
-        <option value="contract">Contract Review</option>
-        <option value="risk">Risk Assessment</option>
-      </select>
-    </div>
+  <div class="input-wrap">
     <div class="input-box">
-      <textarea id="user-input" placeholder="Describe a compliance scenario... (e.g. Our company sent marketing emails to 8,000 users without consent. Is this GDPR compliant?)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <textarea id="user-input" placeholder="Describe a compliance scenario... (e.g. We sent marketing emails to 8,000 users without consent. Is this GDPR compliant?)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()">&#9650;</button>
     </div>
-    <div class="input-hint">Night Shift 2026 · Canary Wharf · github.com/ShieldTech-Ltd/canopy</div>
+    <div class="input-footer">Night Shift 2026 · WeWork Canary Wharf · github.com/ShieldTech-Ltd/canopy</div>
   </div>
 </div>
 
@@ -539,29 +595,32 @@ function advanceStep(idx) {
 
 function showVerdict(bubble, data) {
   if (data.error) {
-    bubble.innerHTML = '<span style="color:#ffb347">Could not parse scenario: ' + esc(data.error) + '. Try describing the policy, evidence, and claim more explicitly.</span>';
+    bubble.innerHTML = '<span style="color:#d29922;font-size:13px">Could not parse: ' + esc(data.error) + '. Try describing the policy, evidence, and claim more explicitly.</span>';
     scrollBottom();
     return;
   }
   var verdict = data.verdict || 'UNSURE';
   var html = '<div class="verdict-card">';
-  html += '<div class="verdict-badge ' + esc(verdict) + '">' + esc(verdict) + '</div>';
+  html += '<div class="verdict-header ' + esc(verdict) + '">';
+  html += '<span class="verdict-badge ' + esc(verdict) + '">' + esc(verdict) + '</span>';
+  html += '<span class="verdict-meta">' + esc(data.ms || 0) + 'ms · Banyan Sapling · ' + esc(currentDomain) + '</span>';
+  html += '</div>';
+  html += '<div class="verdict-body">';
   html += '<div class="conf-label">Confidence breakdown</div>';
   html += '<div class="prob-bars">';
-  html += probRow('SUP', data.sup || 0, '#7fffd4');
-  html += probRow('VIO', data.vio || 0, '#ff6b6b');
-  html += probRow('INS', data.ins || 0, '#ffb347');
+  html += probRow('SUP', data.sup || 0, '#2ea043');
+  html += probRow('VIO', data.vio || 0, '#f85149');
+  html += probRow('INS', data.ins || 0, '#d29922');
   html += '</div>';
-  html += '<div style="font-size:11px;color:#444;margin-bottom:6px">' + esc(data.ms || 0) + 'ms · Banyan Sapling · ' + esc(currentDomain) + '</div>';
   if (data.correction_status) {
-    html += '<div class="correction-sent">Mubit record_outcome() → ' + esc(data.correction_status) + '</div>';
+    html += '<div class="correction-sent">✓ Mubit record_outcome() → ' + esc(data.correction_status) + '</div>';
   }
-  html += '<div class="correction-row">';
-  html += '<span style="font-size:11px;color:#555;align-self:center">Train Mubit:</span>';
-  html += '<button class="btn-corr green" onclick="correct(\'SUPPORTED\')">Train: Mark SUPPORTED</button>';
-  html += '<button class="btn-corr" onclick="correct(\'VIOLATES\')">Train: Mark VIOLATES</button>';
+  html += '<div class="train-row">';
+  html += '<span class="train-label">Train Mubit:</span>';
+  html += '<button class="btn-train support" onclick="correct(\'SUPPORTED\')">Mark as SUPPORTED</button>';
+  html += '<button class="btn-train violate" onclick="correct(\'VIOLATES\')">Mark as VIOLATES</button>';
   html += '</div>';
-  html += '</div>';
+  html += '</div></div>';
   bubble.innerHTML = html;
   scrollBottom();
 }
@@ -624,9 +683,9 @@ function correct(correctVerdict) {
 
 function toggleLog() {
   var el = document.getElementById('log-mini');
-  var tog = document.querySelector('.log-toggle');
+  var icon = document.getElementById('log-icon');
   el.classList.toggle('open');
-  tog.textContent = el.classList.contains('open') ? '▾ agent log' : '▸ agent log';
+  icon.textContent = el.classList.contains('open') ? '▼' : '▶';
 }
 
 // Poll state every 3s
@@ -649,12 +708,16 @@ function pollState() {
       document.getElementById('chart-v1-pct').textContent = d.v1_accuracy + '%';
     }
     var ls = document.getElementById('live-status');
+    var dot = document.getElementById('status-dot');
     if (d.api_status === 'live') {
-      ls.textContent = 'LIVE — Banyan Sapling · ' + d.last_timing_ms + 'ms';
-      ls.style.color = '#7fffd4';
+      ls.textContent = 'Live · Banyan Sapling · ' + d.last_timing_ms + 'ms';
+      dot.className = 'status-dot live';
+    } else if (d.api_status === 'error') {
+      ls.textContent = 'Connection error';
+      dot.className = 'status-dot error';
     } else {
-      ls.textContent = d.api_status.toUpperCase();
-      ls.style.color = '#ffb347';
+      ls.textContent = 'Connecting to Banyan Sapling...';
+      dot.className = 'status-dot connecting';
     }
     // Update mini log
     var logEl = document.getElementById('log-mini');
