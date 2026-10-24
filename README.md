@@ -67,7 +67,7 @@ The browser's training-retention checkbox requests full recording for the verifi
 
 A changed answer after adding evidence is context enrichment. It is not proof of model training. Use separate held-out cases and trusted labels before claiming an improvement.
 
-The [recording script](docs/submission/RECORDING-SCRIPT.md) uses the fictional damaged-item exception and includes an honest ending if no adapter has passed. The [four-slide PDF deck](output/pdf/canopy-night-shift-demo.pdf) is a submission draft; update its live-status slide if the Mubit console changes before submission.
+The [recording script](docs/submission/RECORDING-SCRIPT.md) uses the fictional damaged-item exception and includes an honest ending if no adapter has passed. A [four-slide PDF deck](output/pdf/canopy-night-shift-demo.pdf) is available as optional supporting material; check the current `/submit` form before uploading anything.
 
 ## Deployment
 
