@@ -277,243 +277,225 @@ PAGE = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Canopy — Mubit</title>
+<title>Canopy — Mubit Compliance Agent</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#0d1117;color:#e6edf3;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5}
-/* ── Layout ── */
+html,body{height:100%;background:#111827;color:#f9fafb;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+/* ── 3-panel layout ── */
 .app{display:flex;height:100vh;overflow:hidden}
-/* ── Sidebar ── */
-.sidebar{width:272px;min-width:272px;background:#010409;border-right:1px solid #21262d;display:flex;flex-direction:column;overflow-y:auto}
-.sidebar::-webkit-scrollbar{width:0}
-/* Brand */
-.brand{padding:20px 20px 16px;border-bottom:1px solid #21262d}
-.brand-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.brand-icon{width:32px;height:32px;background:linear-gradient(135deg,#238636,#2ea043);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;letter-spacing:1px;flex-shrink:0}
-.brand-name{font-size:15px;font-weight:700;color:#e6edf3;letter-spacing:.5px}
-.brand-sub{font-size:10px;color:#8b949e;letter-spacing:.5px;text-transform:uppercase;margin-top:1px}
-.slogan-text{font-size:11px;color:#30363d;font-style:italic;line-height:1.5;margin-top:10px}
-/* Status pill */
-.status-row{padding:12px 20px;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:8px}
-.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.status-dot.live{background:#2ea043;box-shadow:0 0 6px #2ea04360}
-.status-dot.connecting{background:#d29922;animation:blink 1.2s infinite}
-.status-dot.error{background:#f85149}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-.status-text{font-size:11px;color:#8b949e;font-weight:500}
-/* Stats grid */
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:16px 20px;border-bottom:1px solid #21262d}
-.stat-card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:10px 12px}
-.stat-card-label{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;font-weight:500}
-.stat-card-val{font-size:20px;font-weight:700;line-height:1}
-.stat-card-val.green{color:#2ea043}
-.stat-card-val.red{color:#f85149}
-.stat-card-val.amber{color:#d29922}
-.stat-card-val.purple{color:#a5a0ff}
-.stat-card-val.blue{color:#58a6ff}
-.stat-card.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
-.stat-card.wide .stat-card-label{margin-bottom:0}
-.ver-badge{background:#1f2937;border:1px solid #374151;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;color:#a5a0ff}
+/* ── Left sidebar ── */
+.sidebar{width:248px;min-width:248px;background:#0f1623;border-right:1px solid #1f2937;display:flex;flex-direction:column;overflow:hidden}
+.brand{padding:18px 16px 14px;border-bottom:1px solid #1f2937}
+.brand-row{display:flex;align-items:center;gap:10px}
+.brand-mark{width:30px;height:30px;border-radius:7px;background:linear-gradient(145deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:-0.5px}
+.brand-text{}
+.brand-name{font-size:14px;font-weight:700;color:#f9fafb;letter-spacing:-.2px}
+.brand-sub{font-size:9.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin-top:1px}
+.sidebar-status{padding:10px 16px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:7px}
+.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.sdot.live{background:#22c55e;box-shadow:0 0 5px #22c55e80}
+.sdot.connecting{background:#f59e0b;animation:blink 1.1s infinite}
+.sdot.error{background:#ef4444}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.stext{font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Stats */
+.stats{padding:14px 16px;border-bottom:1px solid #1f2937;display:flex;flex-direction:column;gap:6px}
+.stat-row2{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#1a2332;border-radius:7px;border:1px solid #1f2937}
+.stat-lbl{font-size:10.5px;color:#6b7280;font-weight:500}
+.stat-num{font-size:14px;font-weight:700}
+.stat-num.g{color:#22c55e}
+.stat-num.r{color:#ef4444}
+.stat-num.y{color:#f59e0b}
+.stat-num.b{color:#60a5fa}
+.stat-num.p{color:#a78bfa}
 /* Training chart */
-.chart-section{padding:16px 20px;border-bottom:1px solid #21262d}
-.section-title{font-size:11px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
-.chart-item{margin-bottom:10px}
-.chart-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
-.chart-item-label{font-size:11px;color:#8b949e}
-.chart-item-pct{font-size:11px;font-weight:600;color:#e6edf3}
-.chart-track{height:6px;background:#21262d;border-radius:4px;overflow:hidden}
-.chart-fill{height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
-.chart-fill.baseline{background:#30363d}
-.chart-fill.current{background:linear-gradient(90deg,#238636,#2ea043)}
-/* Agent log */
-.log-section{flex:1;display:flex;flex-direction:column;min-height:0}
-.log-toggle{padding:10px 20px;font-size:11px;font-weight:500;color:#8b949e;cursor:pointer;display:flex;align-items:center;gap:6px;border-top:1px solid #21262d}
-.log-toggle:hover{color:#e6edf3}
-.log-toggle-icon{font-size:9px;transition:transform .2s}
-.log-mini{display:none;padding:0 12px 12px;overflow-y:auto;max-height:140px}
-.log-mini.open{display:block}
-.log-entry{font-size:10px;font-family:'SF Mono','Fira Code',monospace;padding:2px 0;color:#30363d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #161b22}
-.log-entry.ok{color:#2a4a2a}
-.log-entry.corr{color:#5a2020}
-.log-entry.upd{color:#1a4a2a}
-.log-entry.warn{color:#4a3a10}
-.log-entry.error{color:#5a1010}
-/* ── Main ── */
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#0d1117}
-/* Top bar */
-.topbar{padding:0 24px;height:52px;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;background:#010409;flex-shrink:0}
-.topbar-left{display:flex;align-items:center;gap:12px}
-.topbar-title{font-size:14px;font-weight:600;color:#e6edf3}
-.domain-select{background:#161b22;border:1px solid #30363d;color:#e6edf3;font-size:12px;font-weight:500;padding:5px 10px;border-radius:6px;font-family:inherit;cursor:pointer;outline:none}
-.domain-select:focus{border-color:#388bfd}
-.topbar-hint{font-size:11px;color:#8b949e}
-/* Messages */
-.messages{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:20px}
-.messages::-webkit-scrollbar{width:5px}
-.messages::-webkit-scrollbar-track{background:transparent}
-.messages::-webkit-scrollbar-thumb{background:#21262d;border-radius:4px}
+.tchart{padding:14px 16px;border-bottom:1px solid #1f2937}
+.tchart-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px}
+.trow{margin-bottom:8px}
+.trow-head{display:flex;justify-content:space-between;margin-bottom:4px}
+.trow-label{font-size:11px;color:#9ca3af}
+.trow-val{font-size:11px;font-weight:600;color:#d1d5db}
+.ttrack{height:5px;background:#1f2937;border-radius:3px;overflow:hidden}
+.tfill{height:100%;border-radius:3px;transition:width 1s ease}
+.tfill.base{background:#374151}
+.tfill.now{background:linear-gradient(90deg,#16a34a,#22c55e)}
+/* Log */
+.log-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
+.log-head{padding:9px 16px;font-size:10.5px;font-weight:500;color:#6b7280;cursor:pointer;display:flex;align-items:center;gap:6px;border-top:1px solid #1f2937;flex-shrink:0}
+.log-head:hover{color:#d1d5db}
+.log-body{display:none;flex:1;overflow-y:auto;padding:4px 12px 8px}
+.log-body.open{display:block}
+.lentry{font-size:9.5px;font-family:'JetBrains Mono',monospace;padding:2px 0;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #111827}
+.lentry.upd{color:#14532d}
+.lentry.corr{color:#450a0a}
+.lentry.ok{color:#1e3a1e}
+.lentry.warn{color:#451a03}
+/* ── Centre: chat ── */
+.chat-col{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:#111827}
+.chat-top{height:50px;border-bottom:1px solid #1f2937;display:flex;align-items:center;padding:0 20px;gap:10px;background:#0f1623;flex-shrink:0}
+.chat-top-title{font-size:13.5px;font-weight:600;color:#f9fafb}
+.dom-sel{background:#1a2332;border:1px solid #374151;color:#d1d5db;font-size:11.5px;font-weight:500;padding:4px 9px;border-radius:6px;font-family:inherit;cursor:pointer;outline:none}
+.dom-sel:focus{border-color:#3b82f6}
+.chat-top-right{margin-left:auto;font-size:10.5px;color:#4b5563}
+.msgs{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+.msgs::-webkit-scrollbar{width:4px}
+.msgs::-webkit-scrollbar-thumb{background:#1f2937;border-radius:4px}
 /* Bubbles */
-.msg{display:flex;gap:12px;max-width:780px;width:100%}
-.msg.user{flex-direction:row-reverse;align-self:flex-end}
-.msg-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px}
-.msg.user .msg-avatar{background:#1f3a24;color:#2ea043;border:1px solid #2ea04330}
-.msg.agent .msg-avatar{background:#1c2128;color:#a5a0ff;border:1px solid #30363d}
-.msg-body{flex:1}
-.msg.user .msg-body{display:flex;flex-direction:column;align-items:flex-end}
-.bubble{padding:12px 16px;border-radius:12px;font-size:13.5px;line-height:1.65;max-width:640px}
-.msg.user .bubble{background:#1f2d1f;border:1px solid #2d4a2d;color:#cdd9cd;border-radius:12px 12px 2px 12px}
-.msg.agent .bubble{background:#161b22;border:1px solid #21262d;color:#c9d1d9;border-radius:12px 12px 12px 2px;width:100%}
+.msg{display:flex;gap:10px;max-width:100%}
+.msg.user{flex-direction:row-reverse;align-self:flex-end;max-width:72%}
+.ava{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px}
+.msg.user .ava{background:#14532d;color:#4ade80;border:1px solid #16a34a30}
+.msg.agent .ava{background:#1e1b4b;color:#a78bfa;border:1px solid #312e81}
+.mbody{flex:1;min-width:0}
+.msg.user .mbody{display:flex;flex-direction:column;align-items:flex-end}
+.bub{padding:11px 15px;border-radius:11px;font-size:13px;line-height:1.7;max-width:100%}
+.msg.user .bub{background:#14532d;border:1px solid #166534;color:#d1fae5;border-radius:11px 11px 2px 11px}
+.msg.agent .bub{background:#1a2332;border:1px solid #1f2937;color:#e5e7eb;border-radius:11px 11px 11px 2px;width:100%}
 /* Thinking */
-.thinking{padding:8px 0 4px}
-.step{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11.5px;font-family:'SF Mono','Fira Code',monospace;color:#30363d;border-bottom:1px solid #161b22}
+.thinking{padding:6px 0}
+.step{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:11px;font-family:'JetBrains Mono',monospace;color:#374151;border-bottom:1px solid #1a2332}
 .step:last-child{border:none}
-.step.done{color:#2a4a2a}
-.step.active{color:#388bfd}
-.step-icon{width:14px;text-align:center;font-size:10px;flex-shrink:0}
+.step.done{color:#166534}
+.step.active{color:#3b82f6}
+.step-icon{width:12px;text-align:center;flex-shrink:0}
 /* Verdict */
-.verdict-card{margin-top:12px;border:1px solid #21262d;border-radius:10px;overflow:hidden}
-.verdict-header{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #21262d}
-.verdict-header.VIOLATES{background:#1c0a0a}
-.verdict-header.SUPPORTED{background:#0a1f0f}
-.verdict-header.INSUFFICIENT{background:#1a1200}
-.verdict-header.UNSURE{background:#111320}
-.verdict-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.8px}
-.verdict-badge.VIOLATES{background:#5a1010;color:#f85149;border:1px solid #7a1a1a}
-.verdict-badge.SUPPORTED{background:#0d4a1a;color:#3fb950;border:1px solid #1a6a2a}
-.verdict-badge.INSUFFICIENT{background:#3a2a00;color:#d29922;border:1px solid #5a4000}
-.verdict-badge.UNSURE{background:#1a1a40;color:#a5a0ff;border:1px solid #2a2a60}
-.verdict-meta{font-size:11px;color:#8b949e}
-.verdict-body{padding:14px 16px;background:#0d1117}
-.conf-label{font-size:10px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
-.prob-bars{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
-.prob-row{display:flex;align-items:center;gap:10px}
-.prob-name{font-size:10px;font-weight:600;color:#8b949e;width:28px;text-align:right;letter-spacing:.3px}
-.prob-track{background:#161b22;border-radius:3px;height:5px;flex:1;max-width:220px;border:1px solid #21262d}
-.prob-fill{height:100%;border-radius:3px;transition:width .6s ease}
-.prob-pct{font-size:10px;color:#8b949e;width:28px}
-.train-row{display:flex;align-items:center;gap:8px;padding-top:10px;border-top:1px solid #21262d}
-.train-label{font-size:11px;color:#8b949e;font-weight:500;margin-right:4px}
-.btn-train{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s}
-.btn-train.support{background:#0d4a1a;border:1px solid #2ea04360;color:#3fb950}
-.btn-train.support:hover{background:#155724;border-color:#2ea043}
-.btn-train.violate{background:#3a0f0f;border:1px solid #f8514960;color:#f85149}
-.btn-train.violate:hover{background:#5a1515;border-color:#f85149}
-.correction-sent{font-size:11px;color:#a5a0ff;display:flex;align-items:center;gap:6px;padding-top:10px;border-top:1px solid #21262d}
+.vcard{margin-top:10px;border-radius:9px;overflow:hidden;border:1px solid #1f2937}
+.vhead{padding:10px 14px;display:flex;align-items:center;gap:10px}
+.vhead.VIOLATES{background:#1c0707;border-bottom:1px solid #450a0a}
+.vhead.SUPPORTED{background:#052e16;border-bottom:1px solid #14532d}
+.vhead.INSUFFICIENT{background:#1c1007;border-bottom:1px solid #451a03}
+.vhead.UNSURE{background:#12111e;border-bottom:1px solid #1e1b4b}
+.vbadge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.vbadge.VIOLATES{background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d}
+.vbadge.SUPPORTED{background:#14532d;color:#86efac;border:1px solid #166534}
+.vbadge.INSUFFICIENT{background:#451a03;color:#fcd34d;border:1px solid #78350f}
+.vbadge.UNSURE{background:#1e1b4b;color:#c4b5fd;border:1px solid #312e81}
+.vmeta{font-size:10.5px;color:#6b7280}
+.vbody{padding:12px 14px;background:#0f1623}
+.clabel{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280;margin-bottom:8px}
+.pbars{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.prow{display:flex;align-items:center;gap:8px}
+.pname{font-size:10px;font-weight:600;color:#6b7280;width:26px;text-align:right}
+.ptrack{background:#1f2937;border-radius:2px;height:4px;flex:1;max-width:200px}
+.pfill{height:100%;border-radius:2px;transition:width .5s ease}
+.ppct{font-size:10px;color:#6b7280;width:26px}
+.train-row{display:flex;align-items:center;gap:7px;padding-top:9px;border-top:1px solid #1f2937;flex-wrap:wrap}
+.tlabel{font-size:10.5px;color:#6b7280;font-weight:500}
+.tbtn{padding:4px 11px;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .12s;border:1px solid}
+.tbtn.ts{background:#052e16;border-color:#16a34a50;color:#4ade80}
+.tbtn.ts:hover{background:#14532d;border-color:#16a34a}
+.tbtn.tv{background:#1c0707;border-color:#ef444450;color:#fca5a5}
+.tbtn.tv:hover{background:#450a0a;border-color:#ef4444}
+.csent{font-size:10.5px;color:#a78bfa;padding-top:9px;border-top:1px solid #1f2937;display:flex;align-items:center;gap:5px}
 /* Input */
-.input-wrap{padding:12px 24px 16px;border-top:1px solid #21262d;background:#010409;flex-shrink:0}
-.domain-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.domain-row-label{font-size:11px;color:#8b949e;font-weight:500}
-.input-box{display:flex;gap:10px;align-items:flex-end;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:10px 14px;transition:border-color .15s}
-.input-box:focus-within{border-color:#388bfd}
-#user-input{flex:1;background:transparent;border:none;outline:none;color:#e6edf3;font-size:13.5px;font-family:inherit;resize:none;max-height:120px;line-height:1.6}
-#user-input::placeholder{color:#484f58}
-.send-btn{background:#238636;border:1px solid #2ea043;color:#fff;width:34px;height:34px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;transition:background .15s}
-.send-btn:hover{background:#2ea043}
-.send-btn:disabled{opacity:.35;cursor:default}
-.input-footer{font-size:10px;color:#30363d;margin-top:6px;text-align:center}
+.inp-wrap{padding:12px 20px 14px;border-top:1px solid #1f2937;background:#0f1623;flex-shrink:0}
+.inp-box{display:flex;gap:9px;align-items:flex-end;background:#1a2332;border:1px solid #374151;border-radius:9px;padding:9px 13px;transition:border-color .15s}
+.inp-box:focus-within{border-color:#3b82f6}
+#user-input{flex:1;background:transparent;border:none;outline:none;color:#f9fafb;font-size:13px;font-family:inherit;resize:none;max-height:110px;line-height:1.6}
+#user-input::placeholder{color:#4b5563}
+.sbtn{background:#16a34a;border:1px solid #22c55e;color:#fff;width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;transition:background .12s}
+.sbtn:hover{background:#22c55e}
+.sbtn:disabled{opacity:.3;cursor:default}
+.inp-foot{font-size:9.5px;color:#374151;margin-top:5px;text-align:center}
+/* ── Right panel ── */
+.evidence-col{width:288px;min-width:288px;background:#0f1623;border-left:1px solid #1f2937;display:flex;flex-direction:column;overflow:hidden}
+.ep-head{padding:14px 16px;border-bottom:1px solid #1f2937;flex-shrink:0}
+.ep-title{font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.7px}
+.ep-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;color:#374151;text-align:center;font-size:12px;line-height:1.6}
+.ep-icon{font-size:28px;opacity:.3}
+.ep-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+.ep-body::-webkit-scrollbar{width:3px}
+.ep-body::-webkit-scrollbar-thumb{background:#1f2937}
+.ep-section{}
+.ep-section-label{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:6px}
+.ep-section-val{font-size:12px;color:#d1d5db;line-height:1.6;background:#1a2332;border:1px solid #1f2937;border-radius:7px;padding:9px 11px}
+.ep-divider{height:1px;background:#1f2937;margin:2px 0}
 </style>
 </head>
 <body>
 <div class="app">
 
-<!-- Sidebar -->
+<!-- Left sidebar -->
 <div class="sidebar">
   <div class="brand">
     <div class="brand-row">
-      <div class="brand-icon">C</div>
-      <div>
+      <div class="brand-mark">C</div>
+      <div class="brand-text">
         <div class="brand-name">Canopy</div>
         <div class="brand-sub">Mubit Intelligence Layer</div>
       </div>
     </div>
-    <div class="slogan-text">"Every other team built an app that uses an AI. We built an app that trains one."</div>
   </div>
-  <div class="status-row">
-    <div class="status-dot connecting" id="status-dot"></div>
-    <span class="status-text" id="live-status">Connecting to Banyan Sapling...</span>
+  <div class="sidebar-status">
+    <div class="sdot connecting" id="status-dot"></div>
+    <span class="stext" id="live-status">Connecting...</span>
   </div>
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-card-label">Accuracy</div>
-      <div class="stat-card-val green" id="s-acc">—</div>
+  <div class="stats">
+    <div class="stat-row2"><span class="stat-lbl">Accuracy</span><span class="stat-num g" id="s-acc">—</span></div>
+    <div class="stat-row2"><span class="stat-lbl">Decisions</span><span class="stat-num b" id="s-total">0</span></div>
+    <div class="stat-row2"><span class="stat-lbl">Corrections</span><span class="stat-num r" id="s-corr">0</span></div>
+    <div class="stat-row2"><span class="stat-lbl">INSUFF resolved</span><span class="stat-num y" id="s-res">0</span></div>
+    <div class="stat-row2"><span class="stat-lbl">Model</span><span class="stat-num p" id="s-ver">v1</span></div>
+  </div>
+  <div class="tchart">
+    <div class="tchart-title">Training progress</div>
+    <div class="trow">
+      <div class="trow-head"><span class="trow-label">Baseline</span><span class="trow-val" id="chart-v1-pct">—</span></div>
+      <div class="ttrack"><div class="tfill base" id="chart-v1" style="width:0"></div></div>
     </div>
-    <div class="stat-card">
-      <div class="stat-card-label">Decisions</div>
-      <div class="stat-card-val blue" id="s-total">0</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card-label">Corrections</div>
-      <div class="stat-card-val red" id="s-corr">0</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card-label">Resolved</div>
-      <div class="stat-card-val amber" id="s-res">0</div>
-    </div>
-    <div class="stat-card wide">
-      <div class="stat-card-label">Model version</div>
-      <div class="ver-badge" id="s-ver">v1</div>
+    <div class="trow">
+      <div class="trow-head"><span class="trow-label">Current</span><span class="trow-val" id="chart-now-pct">—</span></div>
+      <div class="ttrack"><div class="tfill now" id="chart-now" style="width:0"></div></div>
     </div>
   </div>
-  <div class="chart-section">
-    <div class="section-title">Training progress</div>
-    <div class="chart-item">
-      <div class="chart-item-head">
-        <span class="chart-item-label">Baseline</span>
-        <span class="chart-item-pct" id="chart-v1-pct" style="color:#8b949e">—</span>
-      </div>
-      <div class="chart-track"><div class="chart-fill baseline" id="chart-v1" style="width:0%"></div></div>
-    </div>
-    <div class="chart-item">
-      <div class="chart-item-head">
-        <span class="chart-item-label">Current</span>
-        <span class="chart-item-pct" id="chart-now-pct">0%</span>
-      </div>
-      <div class="chart-track"><div class="chart-fill current" id="chart-now" style="width:0%"></div></div>
-    </div>
-  </div>
-  <div class="log-section">
-    <div class="log-toggle" onclick="toggleLog()">
-      <span class="log-toggle-icon" id="log-icon">▶</span>
-      Agent log
-    </div>
-    <div class="log-mini" id="log-mini"></div>
+  <div class="log-wrap">
+    <div class="log-head" onclick="toggleLog()"><span id="log-icon">▶</span> Agent log</div>
+    <div class="log-body" id="log-mini"></div>
   </div>
 </div>
 
-<!-- Main -->
-<div class="main">
-  <div class="topbar">
-    <div class="topbar-left">
-      <span class="topbar-title" id="chat-title">Compliance Training Chat</span>
-      <select class="domain-select" id="domain-select" onchange="updateDomain()">
-        <option value="compliance">Regulatory Compliance</option>
-        <option value="contract">Contract Review</option>
-        <option value="risk">Risk Assessment</option>
-      </select>
-    </div>
-    <span class="topbar-hint">Powered by Banyan Sapling · Mubit record_outcome()</span>
+<!-- Centre: chat -->
+<div class="chat-col">
+  <div class="chat-top">
+    <span class="chat-top-title" id="chat-title">Compliance Training Chat</span>
+    <select class="dom-sel" id="domain-select" onchange="updateDomain()">
+      <option value="compliance">Regulatory Compliance</option>
+      <option value="contract">Contract Review</option>
+      <option value="risk">Risk Assessment</option>
+    </select>
+    <span class="chat-top-right">Banyan Sapling · Mubit record_outcome()</span>
   </div>
-  <div class="messages" id="messages">
+  <div class="msgs" id="messages">
     <div class="msg agent">
-      <div class="msg-avatar">C</div>
-      <div class="msg-body">
-        <div class="bubble">
-          Hello. I am Canopy, a compliance verification agent powered by Mubit and Banyan Sapling.<br><br>
-          Describe a scenario and I will verify it. You can use plain English and I will extract the policy, evidence, and claim automatically via Mubit's model gateway.<br><br>
-          After each verdict, use the training buttons to correct me. Every correction fires Mubit's <code>record_outcome()</code> to train a better adapter in real time.
+      <div class="ava">C</div>
+      <div class="mbody">
+        <div class="bub">
+          Hello. I am Canopy — a compliance verification agent built on Mubit and Banyan Sapling.<br><br>
+          Describe a scenario in plain English. I will parse it via Mubit's model gateway, verify it with Banyan Sapling, and show the verdict with confidence scores.<br><br>
+          Use the training buttons after each verdict to correct me. Every correction fires <code>record_outcome()</code> and trains a better Mubit adapter in real time. The evidence panel on the right shows exactly what was verified.
         </div>
       </div>
     </div>
   </div>
-  <div class="input-wrap">
-    <div class="input-box">
-      <textarea id="user-input" placeholder="Describe a compliance scenario... (e.g. We sent marketing emails to 8,000 users without consent. Is this GDPR compliant?)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-      <button class="send-btn" id="send-btn" onclick="sendMessage()">&#9650;</button>
+  <div class="inp-wrap">
+    <div class="inp-box">
+      <textarea id="user-input" placeholder="Describe a scenario... (e.g. We sent marketing emails to 8,000 users without consent. GDPR compliant?)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="sbtn" id="send-btn" onclick="sendMessage()">&#9650;</button>
     </div>
-    <div class="input-footer">Night Shift 2026 · WeWork Canary Wharf · github.com/ShieldTech-Ltd/canopy</div>
+    <div class="inp-foot">Night Shift 2026 · WeWork Canary Wharf · github.com/ShieldTech-Ltd/canopy</div>
   </div>
+</div>
+
+<!-- Right: evidence panel -->
+<div class="evidence-col">
+  <div class="ep-head"><div class="ep-title">Evidence Panel</div></div>
+  <div id="ep-empty" class="ep-empty">
+    <div class="ep-icon">⚖</div>
+    <div>Send a scenario to see the policy, evidence, and claim Canopy verified.</div>
+  </div>
+  <div id="ep-body" class="ep-body" style="display:none"></div>
 </div>
 
 </div>
@@ -562,10 +544,10 @@ function addMsg(role, html) {
   var avatar = role === 'user' ? 'Y' : 'C';
   var div = document.createElement('div');
   div.className = 'msg ' + role;
-  div.innerHTML = '<div class="msg-avatar">' + avatar + '</div><div class="msg-body"><div class="bubble">' + html + '</div></div>';
+  div.innerHTML = '<div class="ava">' + avatar + '</div><div class="mbody"><div class="bub">' + html + '</div></div>';
   msgs.appendChild(div);
   scrollBottom();
-  return div.querySelector('.bubble');
+  return div.querySelector('.bub');
 }
 
 function addThinking(bubble) {
@@ -593,40 +575,57 @@ function advanceStep(idx) {
   if (next) { next.className = 'step active'; next.querySelector('.step-icon').textContent = '›'; }
 }
 
+function updateEvidencePanel(data) {
+  var ep = document.getElementById('ep-body');
+  var empty = document.getElementById('ep-empty');
+  if (!ep || !empty) return;
+  empty.style.display = 'none';
+  ep.style.display = 'flex';
+  ep.innerHTML =
+    '<div class="ep-section"><div class="ep-section-label">Policy</div><div class="ep-section-val">' + esc(data.policy || '') + '</div></div>' +
+    '<div class="ep-divider"></div>' +
+    '<div class="ep-section"><div class="ep-section-label">Evidence</div><div class="ep-section-val">' + esc(data.evidence || '') + '</div></div>' +
+    '<div class="ep-divider"></div>' +
+    '<div class="ep-section"><div class="ep-section-label">Claim</div><div class="ep-section-val">' + esc(data.claim || '') + '</div></div>' +
+    '<div class="ep-divider"></div>' +
+    '<div class="ep-section"><div class="ep-section-label">Verdict</div><div class="ep-section-val"><span class="vbadge ' + esc(data.verdict || 'UNSURE') + '">' + esc(data.verdict || 'UNSURE') + '</span> &nbsp;<span style="font-size:11px;color:#6b7280">' + esc(data.ms || 0) + 'ms</span></div></div>';
+}
+
 function showVerdict(bubble, data) {
   if (data.error) {
-    bubble.innerHTML = '<span style="color:#d29922;font-size:13px">Could not parse: ' + esc(data.error) + '. Try describing the policy, evidence, and claim more explicitly.</span>';
+    bubble.innerHTML = '<span style="color:#f59e0b;font-size:13px">Could not parse: ' + esc(data.error) + '. Try describing the policy, evidence, and claim more explicitly.</span>';
     scrollBottom();
     return;
   }
   var verdict = data.verdict || 'UNSURE';
-  var html = '<div class="verdict-card">';
-  html += '<div class="verdict-header ' + esc(verdict) + '">';
-  html += '<span class="verdict-badge ' + esc(verdict) + '">' + esc(verdict) + '</span>';
-  html += '<span class="verdict-meta">' + esc(data.ms || 0) + 'ms · Banyan Sapling · ' + esc(currentDomain) + '</span>';
+  var html = '<div class="vcard">';
+  html += '<div class="vhead ' + esc(verdict) + '">';
+  html += '<span class="vbadge ' + esc(verdict) + '">' + esc(verdict) + '</span>';
+  html += '<span class="vmeta">' + esc(data.ms || 0) + 'ms · Banyan Sapling · ' + esc(currentDomain) + '</span>';
   html += '</div>';
-  html += '<div class="verdict-body">';
-  html += '<div class="conf-label">Confidence breakdown</div>';
-  html += '<div class="prob-bars">';
-  html += probRow('SUP', data.sup || 0, '#2ea043');
-  html += probRow('VIO', data.vio || 0, '#f85149');
-  html += probRow('INS', data.ins || 0, '#d29922');
+  html += '<div class="vbody">';
+  html += '<div class="clabel">Confidence</div>';
+  html += '<div class="pbars">';
+  html += probRow('SUP', data.sup || 0, '#22c55e');
+  html += probRow('VIO', data.vio || 0, '#ef4444');
+  html += probRow('INS', data.ins || 0, '#f59e0b');
   html += '</div>';
   if (data.correction_status) {
-    html += '<div class="correction-sent">✓ Mubit record_outcome() → ' + esc(data.correction_status) + '</div>';
+    html += '<div class="csent">✓ Mubit record_outcome() → ' + esc(data.correction_status) + '</div>';
   }
   html += '<div class="train-row">';
-  html += '<span class="train-label">Train Mubit:</span>';
-  html += '<button class="btn-train support" onclick="correct(\'SUPPORTED\')">Mark as SUPPORTED</button>';
-  html += '<button class="btn-train violate" onclick="correct(\'VIOLATES\')">Mark as VIOLATES</button>';
+  html += '<span class="tlabel">Train Mubit:</span>';
+  html += '<button class="tbtn ts" onclick="correct(\'SUPPORTED\')">Mark SUPPORTED</button>';
+  html += '<button class="tbtn tv" onclick="correct(\'VIOLATES\')">Mark VIOLATES</button>';
   html += '</div>';
   html += '</div></div>';
   bubble.innerHTML = html;
+  updateEvidencePanel(data);
   scrollBottom();
 }
 
 function probRow(name, pct, color) {
-  return '<div class="prob-row"><span class="prob-name">' + esc(name) + '</span><div class="prob-track"><div class="prob-fill" style="background:' + color + ';width:' + pct + '%"></div></div><span class="prob-pct">' + esc(pct) + '%</span></div>';
+  return '<div class="prow"><span class="pname">' + esc(name) + '</span><div class="ptrack"><div class="pfill" style="background:' + color + ';width:' + pct + '%"></div></div><span class="ppct">' + esc(pct) + '%</span></div>';
 }
 
 function sendMessage() {
@@ -675,9 +674,16 @@ function correct(correctVerdict) {
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
-    var rows = document.querySelectorAll('.correction-row');
-    var last = rows[rows.length - 1];
-    if (last) last.innerHTML = '<span class="correction-sent" style="color:#a78bfa">Correction sent to Mubit → record_outcome() ' + esc(d.status) + '</span>';
+    var trainRows = document.querySelectorAll('.train-row');
+    var last = trainRows[trainRows.length - 1];
+    if (last) last.innerHTML = '<span class="csent">✓ Correction sent → record_outcome() ' + esc(d.status) + '</span>';
+    var ep = document.getElementById('ep-body');
+    if (ep) {
+      var note = document.createElement('div');
+      note.className = 'ep-section';
+      note.innerHTML = '<div class="ep-section-label">Correction</div><div class="ep-section-val" style="color:#a78bfa">Marked as ' + esc(correctVerdict) + ' · record_outcome() fired</div>';
+      ep.appendChild(note);
+    }
   });
 }
 
@@ -696,7 +702,6 @@ function pollState() {
     document.getElementById('s-acc').textContent = d.accuracy + '%';
     document.getElementById('s-total').textContent = d.total;
     document.getElementById('s-corr').textContent = d.corrections;
-    document.getElementById('s-ins').textContent = d.insufficient;
     document.getElementById('s-res').textContent = d.resolved;
     document.getElementById('s-ver').textContent = 'v' + d.version;
     // Training chart
@@ -711,13 +716,13 @@ function pollState() {
     var dot = document.getElementById('status-dot');
     if (d.api_status === 'live') {
       ls.textContent = 'Live · Banyan Sapling · ' + d.last_timing_ms + 'ms';
-      dot.className = 'status-dot live';
+      dot.className = 'sdot live';
     } else if (d.api_status === 'error') {
       ls.textContent = 'Connection error';
-      dot.className = 'status-dot error';
+      dot.className = 'sdot error';
     } else {
       ls.textContent = 'Connecting to Banyan Sapling...';
-      dot.className = 'status-dot connecting';
+      dot.className = 'sdot connecting';
     }
     // Update mini log
     var logEl = document.getElementById('log-mini');
