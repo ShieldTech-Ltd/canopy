@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install --require-hashes --only-binary=:all: -r requirements.lock
+      - run: 'python -m pip install --require-hashes --only-binary=:all: -r requirements.lock'
       - run: python -m pip install pip-audit==2.10.1
       - run: python -m pip_audit -r requirements.lock --progress-spinner off
       - run: python -m unittest -v
@@ -19,7 +19,7 @@ jobs:
         run: |
           docker run -d --rm --name canopy-smoke -p 127.0.0.1:18082:8080 -e CANOPY_PUBLIC_ORIGIN=https://canopy.example.test -e CANOPY_OPERATOR_TOKEN=ci-only-token-at-least-thirty-two-characters -e MUBIT_API_KEY=ci-placeholder-never-used canopy:pr
           trap 'docker logs canopy-smoke; docker stop canopy-smoke' EXIT
-          for attempt in $(seq 1 30); do
+          for ((attempt=1; attempt<=30; attempt++)); do
             if curl --fail --silent http://127.0.0.1:18082/livez; then
               break
             fi
