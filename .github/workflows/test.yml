@@ -13,3 +13,14 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest -v
       - run: docker build --tag canopy:pr .
+      - name: Smoke test container runtime
+        run: |
+          docker run -d --rm --name canopy-smoke +            -p 127.0.0.1:18082:8080 +            -e CANOPY_PUBLIC_ORIGIN=https://canopy.example.test +            -e CANOPY_OPERATOR_TOKEN=ci-only-token-at-least-thirty-two-characters +            -e MUBIT_API_KEY=ci-placeholder-never-used +            canopy:pr
+          trap 'docker logs canopy-smoke; docker stop canopy-smoke' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18082/livez; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent +            -H 'Host: canopy.example.test' +            -u operator:ci-only-token-at-least-thirty-two-characters +            http://127.0.0.1:18082/readyz
