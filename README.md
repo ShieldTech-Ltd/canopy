@@ -4,7 +4,7 @@
 
 **Policy checks you can inspect.** Canopy is a Night Shift prototype for support and operations teams who need to check a claim against a supplied policy and case evidence. It returns **SUPPORTED**, **VIOLATES**, or **INSUFFICIENT**, with a reason and an inspectable execution trace.
 
-[Open the deployed app](https://canopy-sbs0.onrender.com/) · [Two-minute demo guide](docs/submission/RECORDING-SCRIPT.md)
+[Open the deployed app](https://canopy-sbs0.onrender.com/) · [Submitted demo walkthrough](docs/submission/RECORDING-SCRIPT.md)
 
 Give Canopy the policy, what happened, and the claim to test. It requests missing facts instead of filling them in. The app routes model calls through Mubit and shows the returned `mreq_` request IDs. A person can confirm or correct a verdict with a written reason; that review is currently stored in Canopy only.
 
@@ -63,17 +63,17 @@ Open http://localhost:8080. An existing `.env` file is loaded; it stays gitignor
 
 The browser's training-retention checkbox requests full recording for the verification or chat call. It is off by default. Extraction is not retained. Requesting recording does not guarantee that Mubit accepts a training example. Do not select retention for sensitive customer conversations without authorization.
 
-## Event demo
+## What the submitted demo shows
 
-1. Load the built-in fictional refund case and run it.
-2. Show `mubit.extract` and `mubit.verify`, then the real `mreq_` identifiers.
-3. Inspect the supplied policy, evidence and claim in the Evidence tab.
-4. Save a justified human review and reopen the case to show persistence.
-5. Show the current Mubit task and kept-example count. If a version has **Passed**, compare it with its provider in Try models and label that as an adapter comparison. Mubit support confirmed that Try models interactions do not contribute training examples. Canopy's saved review remains `local_only` until Mubit confirms a supported correction submission path.
+The submitted 1:43 video uses edited captures of a real run on the deployed app. It opens with the Canopy introduction, then follows one fictional refund case:
 
-A changed answer after adding evidence is context enrichment. It is not proof of model training. Use separate held-out cases and trusted labels before claiming an improvement.
+1. The supplied policy has a normal 14-day refund window and a 30-day exception for damaged items, even after use. The customer returned a damaged item on day 21 with photos. The claim says the refund must be refused.
+2. Training retention is requested for this fictional case. Canopy calls Mubit for extraction and verification, then returns **VIOLATES** with the relevant policy quote, supplied facts, and fresh `mreq_` request IDs.
+3. A reviewer confirms that verdict with a written reason. The video reopens the case in the same browser session to show the review saved in Canopy and linked to the verification request. This is a confirmation, not a correction to the model.
+4. The Mubit console shows 35 total requests in the prior 24 hours, zero errors, and the matching refund request with the same policy, evidence, claim, and `VIOLATES` reply. These are counts captured for the video, not live totals.
+5. The newer verification task shows three calls and zero of 25 kept examples. No adapter is serving. The console's 0% routed metric refers to adapter or base routing under task rules; the request is separately visible in Mubit Requests as a Middleware call.
 
-The [two-minute recording guide](docs/submission/RECORDING-SCRIPT.md) uses the fictional damaged-item exception and includes an honest ending if no adapter has passed. The event submission accepts a video, not a slide deck.
+The video does **not** show a submitted correction entering Mubit training, a model update, or measured quality improvement. Human reviews remain `local_only`. It also does not exercise Chat with Canopy, the access example, or the other verdict types described above. See the [walkthrough and evidence notes](docs/submission/RECORDING-SCRIPT.md) for the exact sequence and limits.
 
 ## Deployment
 
