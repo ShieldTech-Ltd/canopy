@@ -1,6 +1,6 @@
 # Two-minute Canopy demo
 
-Submit an MP4 or MOV of at most **2:00** and **300 MB**. The submission has no deck. In the team's Discord channel, run `/submit` and provide the team name, every member's full name and email, the repository URL, the README URL, and the video file. A YouTube link does not replace the upload. The latest message from Max gives **07:00 GMT on Sunday 25 October** as the hard code and submission freeze. It says resubmission is allowed until then, the expo starts at **07:30 GMT**, and five finalists give five-minute stage demos at **09:00 GMT**. The UK clock moves back at 02:00 BST, which becomes 01:00 GMT.
+Submit an MP4 or MOV of at most **2:00** and **300 MB**. The submission has no deck. In the team's Discord channel, run `/submit`; Max provides a private upload page. Enter the team name, every member's full name and email, the repository URL, and the README URL. Upload the video on that page. A YouTube link does not replace the upload. The latest organizer announcement says submissions and resubmissions are open until **08:00 GMT on Sunday 25 October**. Judges inspect the registered repository's default branch as it stands at 08:00. The UK clock moves back at 02:00 BST, which becomes 01:00 GMT.
 
 Use the **Recurring tasks** track and fictional or approved non-sensitive cases. Show a live request, not a prepared answer. Keep secrets and personal data out of the recording.
 
